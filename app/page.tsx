@@ -71,19 +71,19 @@ const Lime = (x: React.CSSProperties = {}): React.CSSProperties => ({ background
 const Ghost = (x: React.CSSProperties = {}): React.CSSProperties => ({ background: "transparent", color: C.muted, border: `1.5px solid ${C.border}`, borderRadius: 12, padding: "10px 20px", fontFamily: "inherit", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all .2s", ...x });
 const Input = (x: React.CSSProperties = {}): React.CSSProperties => ({ width: "100%", padding: "12px 14px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 500, outline: "none", boxSizing: "border-box", ...x });
 
-function Logo() {
+function Logo({ onClick }: { onClick?: () => void }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <div onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 8, cursor: onClick ? "pointer" : "default" }}>
       <div style={{ width: 30, height: 30, background: C.lime, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 16, color: "#07070E" }}>S</div>
       <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 16, letterSpacing: -0.4 }}>SabiTrack</span>
     </div>
   );
 }
 
-function TopNav({ right }: { right?: React.ReactNode }) {
+function TopNav({ right, onLogoClick }: { right?: React.ReactNode; onLogoClick?: () => void }) {
   return (
     <div style={{ padding: "18px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <Logo />
+      <Logo onClick={onLogoClick} />
       {right}
     </div>
   );
@@ -97,10 +97,10 @@ function Pill({ children, color = C.violet, style = {} }: { children: React.Reac
   );
 }
 
-function LandingScreen({ onStart, bgMode, toggleBgMode }: { onStart: () => void; bgMode: "white" | "black"; toggleBgMode: () => void }) {
+function LandingScreen({ onStart, bgMode, toggleBgMode, onLogoClick }: { onStart: () => void; bgMode: "white" | "black"; toggleBgMode: () => void; onLogoClick: () => void }) {
   return (
     <div style={page}>
-      <TopNav right={<div style={{ display: "flex", alignItems: "center", gap: 8 }}><button onClick={toggleBgMode} style={Ghost({ padding: "10px 12px", fontSize: 12, color: C.text, borderColor: C.muted })}>{bgMode === "black" ? "☀️ Light" : "🌙 Dark"}</button><button onClick={onStart} style={Ghost({ padding: "9px 18px", fontSize: 13 })}>log in</button></div>} />
+      <TopNav onLogoClick={onLogoClick} right={<div style={{ display: "flex", alignItems: "center", gap: 8 }}><button onClick={toggleBgMode} style={Ghost({ padding: "10px 12px", fontSize: 12, color: C.text, borderColor: C.muted })}>{bgMode === "black" ? "☀️ Light" : "🌙 Dark"}</button><button onClick={onStart} style={Ghost({ padding: "9px 18px", fontSize: 13 })}>log in</button></div>} />
       <div className="fadeUp" style={{ paddingTop: 12 }}>
         <Pill color={C.lime} style={{ marginBottom: 22 }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.lime, display: "inline-block" }} />
@@ -150,12 +150,12 @@ function LandingScreen({ onStart, bgMode, toggleBgMode }: { onStart: () => void;
   );
 }
 
-function SignupScreen({ user, setUser, onNext, onSignin, isLoading }: { user: { name: string; email: string; whatsapp: string; password: string; username: string }; setUser: (user: any) => void; onNext: () => void; onSignin: () => void; isLoading: boolean }) {
+function SignupScreen({ user, setUser, onNext, onSignin, isLoading, onLogoClick }: { user: { name: string; email: string; whatsapp: string; password: string; username: string }; setUser: (user: any) => void; onNext: () => void; onSignin: () => void; isLoading: boolean; onLogoClick: () => void }) {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const ready = user.username.trim() && user.email.trim() && user.password.length >= 6 && user.name.trim();
   return (
     <div style={page}>
-      <TopNav />
+      <TopNav onLogoClick={onLogoClick} />
       <div className="fadeUp" style={{ paddingTop: 16 }}>
         <h2 style={H(28, { marginBottom: 6 })}>create your account</h2>
         <p style={{ color: C.muted, fontSize: 15, marginBottom: 32, fontWeight: 500 }}>join sabi track & start crushing goals</p>
@@ -200,7 +200,7 @@ function SignupScreen({ user, setUser, onNext, onSignin, isLoading }: { user: { 
   );
 }
 
-function SigninScreen({ onNext, onSignup, isLoading }: { onNext: (email: string, password: string) => Promise<void>; onSignup: () => void; isLoading: boolean }) {
+function SigninScreen({ onNext, onSignup, isLoading, onLogoClick }: { onNext: (email: string, password: string) => Promise<void>; onSignup: () => void; isLoading: boolean; onLogoClick: () => void }) {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -218,7 +218,7 @@ function SigninScreen({ onNext, onSignup, isLoading }: { onNext: (email: string,
 
   return (
     <div style={page}>
-      <TopNav />
+      <TopNav onLogoClick={onLogoClick} />
       <div className="fadeUp" style={{ paddingTop: 16 }}>
         <h2 style={H(28, { marginBottom: 6 })}>welcome back</h2>
         <p style={{ color: C.muted, fontSize: 15, marginBottom: 32, fontWeight: 500 }}>sign in to your account</p>
@@ -271,7 +271,7 @@ const DURATIONS = [
   { val: "2 years", label: "2yr", sub: "life change" },
 ];
 
-function WizardScreen({ goal, setGoal, onGenerate, isEditing = false }: { goal: { id: string; title: string; duration: string; motivation: string; category: string }; setGoal: React.Dispatch<React.SetStateAction<{ id: string; title: string; duration: string; motivation: string; category: string }>>; onGenerate: () => void; isEditing?: boolean }) {
+function WizardScreen({ goal, setGoal, onGenerate, isEditing = false, onLogoClick }: { goal: { id: string; title: string; duration: string; motivation: string; category: string }; setGoal: React.Dispatch<React.SetStateAction<{ id: string; title: string; duration: string; motivation: string; category: string }>>; onGenerate: () => void; isEditing?: boolean; onLogoClick: () => void }) {
   const [step, setStep] = useState(1);
   const canGo = [
     goal.title.trim().length > 5,
@@ -329,7 +329,7 @@ function WizardScreen({ goal, setGoal, onGenerate, isEditing = false }: { goal: 
   const cur = steps[step - 1];
   return (
     <div style={page}>
-      <TopNav />
+      <TopNav onLogoClick={onLogoClick} />
       <div style={{ display: "flex", gap: 6, marginBottom: 32 }}>
         {steps.map((_, i) => (
           <div key={i} style={{ flex: 1, height: 4, borderRadius: 99, background: i < step ? C.lime : C.border, transition: "background .3s" }} />
@@ -366,7 +366,7 @@ const LOADING_MSGS = [
   "this one's gonna go crazy fr",
 ];
 
-function ManualRoadmapForm({ goal, onSave, isLoading }: { goal: { title: string; duration: string; motivation: string; category: string }; onSave: (roadmap: any) => Promise<void>; isLoading: boolean }) {
+function ManualRoadmapForm({ goal, onSave, isLoading, onLogoClick }: { goal: { title: string; duration: string; motivation: string; category: string }; onSave: (roadmap: any) => Promise<void>; isLoading: boolean; onLogoClick: () => void }) {
   const [yearTarget, setYearTarget] = useState("");
   const [quarterTarget, setQuarterTarget] = useState("");
   const [monthTarget, setMonthTarget] = useState("");
@@ -413,7 +413,7 @@ function ManualRoadmapForm({ goal, onSave, isLoading }: { goal: { title: string;
 
   return (
     <div style={page}>
-      <TopNav />
+      <TopNav onLogoClick={onLogoClick} />
       <div style={{ marginBottom: 24 }}>
         <h2 style={H(24, { marginBottom: 6 })}>build your roadmap manually</h2>
         <p style={{ color: C.muted, fontSize: 14, fontWeight: 600 }}>
@@ -489,7 +489,7 @@ function ManualRoadmapForm({ goal, onSave, isLoading }: { goal: { title: string;
   );
 }
 
-function RoadmapScreen({ roadmap, setRoadmap, loading, goal, onApprove, onRegenerate }: { roadmap: Record<string, any> | null; setRoadmap: React.Dispatch<React.SetStateAction<Record<string, any> | null>>; loading: boolean; goal: { title: string; duration: string; motivation: string; category: string }; onApprove: () => void; onRegenerate: () => void }) {
+function RoadmapScreen({ roadmap, setRoadmap, loading, goal, onApprove, onRegenerate, onLogoClick }: { roadmap: Record<string, any> | null; setRoadmap: React.Dispatch<React.SetStateAction<Record<string, any> | null>>; loading: boolean; goal: { title: string; duration: string; motivation: string; category: string }; onApprove: () => void; onRegenerate: () => void; onLogoClick: () => void }) {
   const [msgIdx, setMsgIdx] = useState(0);
   const [newTask, setNewTask] = useState("");
 
@@ -521,7 +521,7 @@ function RoadmapScreen({ roadmap, setRoadmap, loading, goal, onApprove, onRegene
 
   return (
     <div style={page}>
-      <TopNav />
+      <TopNav onLogoClick={onLogoClick} />
       <div style={{ marginBottom: 24 }}>
         <h2 style={H(24, { marginBottom: 6 })}>
           {loading ? "cooking your plan..." : "your roadmap 🗺️"}
@@ -617,7 +617,7 @@ function RoadmapScreen({ roadmap, setRoadmap, loading, goal, onApprove, onRegene
   );
 }
 
-function SettingsScreen({ user, onBack, bgMode, toggleBgMode, notificationsEnabled, sendTestNotification }: { user: { name: string; email: string; whatsapp: string }; onBack: () => void; bgMode: "white" | "black"; toggleBgMode: () => void; notificationsEnabled: boolean; sendTestNotification: () => void }) {
+function SettingsScreen({ user, onBack, bgMode, toggleBgMode, notificationsEnabled, sendTestNotification, onLogoClick }: { user: { name: string; email: string; whatsapp: string }; onBack: () => void; bgMode: "white" | "black"; toggleBgMode: () => void; notificationsEnabled: boolean; sendTestNotification: () => void; onLogoClick: () => void }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -655,7 +655,7 @@ function SettingsScreen({ user, onBack, bgMode, toggleBgMode, notificationsEnabl
 
   return (
     <div style={page}>
-      <TopNav right={<button onClick={onBack} style={Ghost({ padding: "9px 18px", fontSize: 13 })}>← back</button>} />
+      <TopNav onLogoClick={onLogoClick} right={<button onClick={onBack} style={Ghost({ padding: "9px 18px", fontSize: 13 })}>← back</button>} />
       <div className="fadeUp" style={{ paddingTop: 16 }}>
         <h2 style={H(24, { marginBottom: 6 })}>settings</h2>
         <p style={{ color: C.muted, fontSize: 14, fontWeight: 600, marginBottom: 32 }}>manage your account and preferences</p>
@@ -744,8 +744,8 @@ function SettingsScreen({ user, onBack, bgMode, toggleBgMode, notificationsEnabl
   );
 }
 
-function DashboardScreen(props: DashboardScreenProps) {
-  const { user, goal, allGoals, currentGoalId, switchGoal, roadmap, tasks, setTasks, onCreateGoal, onEditGoal, bgMode, toggleBgMode, dbConnected, onSettings } = props;
+function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void }) {
+  const { user, goal, allGoals, currentGoalId, switchGoal, roadmap, tasks, setTasks, onCreateGoal, onEditGoal, bgMode, toggleBgMode, dbConnected, onSettings, onLogoClick } = props;
   const [activeTab, setActiveTab] = useState("today");
   const [showGoalMenu, setShowGoalMenu] = useState(false);
   const done = tasks.filter(Boolean).length;
@@ -776,7 +776,7 @@ function DashboardScreen(props: DashboardScreenProps) {
       {/* Header */}
       <div style={{ padding: "16px 18px", borderBottom: `1px solid ${C.border}`, background: C.surface }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <Logo />
+          <Logo onClick={onLogoClick} />
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button onClick={toggleBgMode} style={Ghost({ padding: "10px 12px", fontSize: 12, color: C.text, borderColor: C.muted })}>
               {bgMode === "black" ? "☀️ Light" : "🌙 Dark"}
@@ -1553,13 +1553,13 @@ export default function SabiTrack() {
 
   return (
     <div style={{ backgroundColor: C.bg, color: C.text, fontFamily: "'Nunito',sans-serif", minHeight: "100vh" }}>
-      {screen === "landing" && <LandingScreen onStart={() => setScreen("signin")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} />}
-      {screen === "signup" && <SignupScreen user={user} setUser={setUser} onNext={() => setScreen("wizard")} onSignin={() => setScreen("signin")} isLoading={loading} />}
-      {screen === "signin" && <SigninScreen onNext={(email, password) => handleSignin(email, password)} onSignup={() => { setUser({ name: "", email: "", whatsapp: "", password: "", username: "" }); setScreen("signup"); }} isLoading={loading} />}
-      {screen === "wizard" && <WizardScreen goal={goal} setGoal={setGoal} onGenerate={generateRoadmap} isEditing={!!goal.id} />}
-      {screen === "roadmap" && isManualMode ? <ManualRoadmapForm goal={goal} onSave={handleManualRoadmapSave} isLoading={loading} /> : screen === "roadmap" && <RoadmapScreen roadmap={roadmap} setRoadmap={setRoadmap} loading={loading} goal={goal} onApprove={() => setScreen("dashboard")} onRegenerate={generateRoadmap} />}
-      {screen === "settings" && <SettingsScreen user={user} onBack={() => setScreen("dashboard")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} notificationsEnabled={notificationsEnabled} sendTestNotification={sendTestNotification} />}
-      {screen === "dashboard" && <DashboardScreen user={user} goal={goal} allGoals={allGoals} currentGoalId={currentGoalId} switchGoal={switchGoal} roadmap={roadmap} tasks={tasks} setTasks={(newTasks) => { setTasks(newTasks); newTasks.forEach((completed, idx) => updateTaskStatus(idx, completed)); }} onCreateGoal={() => { setGoal({ id: "", title: "", duration: "6 months", motivation: "", category: "" }); setScreen("wizard"); }} onEditGoal={(goalToEdit) => { setGoal(goalToEdit); setScreen("wizard"); }} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} dbConnected={dbConnected} onSettings={() => setScreen("settings")} />}
+      {screen === "landing" && <LandingScreen onStart={() => setScreen("signin")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} onLogoClick={() => setScreen("landing")} />}
+      {screen === "signup" && <SignupScreen user={user} setUser={setUser} onNext={() => setScreen("wizard")} onSignin={() => setScreen("signin")} isLoading={loading} onLogoClick={() => setScreen("landing")} />}
+      {screen === "signin" && <SigninScreen onNext={(email, password) => handleSignin(email, password)} onSignup={() => { setUser({ name: "", email: "", whatsapp: "", password: "", username: "" }); setScreen("signup"); }} isLoading={loading} onLogoClick={() => setScreen("landing")} />}
+      {screen === "wizard" && <WizardScreen goal={goal} setGoal={setGoal} onGenerate={generateRoadmap} isEditing={!!goal.id} onLogoClick={() => setScreen("dashboard")} />}
+      {screen === "roadmap" && isManualMode ? <ManualRoadmapForm goal={goal} onSave={handleManualRoadmapSave} isLoading={loading} onLogoClick={() => setScreen("dashboard")} /> : screen === "roadmap" && <RoadmapScreen roadmap={roadmap} setRoadmap={setRoadmap} loading={loading} goal={goal} onApprove={() => setScreen("dashboard")} onRegenerate={generateRoadmap} onLogoClick={() => setScreen("dashboard")} />}
+      {screen === "settings" && <SettingsScreen user={user} onBack={() => setScreen("dashboard")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} notificationsEnabled={notificationsEnabled} sendTestNotification={sendTestNotification} onLogoClick={() => setScreen("dashboard")} />}
+      {screen === "dashboard" && <DashboardScreen user={user} goal={goal} allGoals={allGoals} currentGoalId={currentGoalId} switchGoal={switchGoal} roadmap={roadmap} tasks={tasks} setTasks={(newTasks) => { setTasks(newTasks); newTasks.forEach((completed, idx) => updateTaskStatus(idx, completed)); }} onCreateGoal={() => { setGoal({ id: "", title: "", duration: "6 months", motivation: "", category: "" }); setScreen("wizard"); }} onEditGoal={(goalToEdit) => { setGoal(goalToEdit); setScreen("wizard"); }} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} dbConnected={dbConnected} onSettings={() => setScreen("settings")} onLogoClick={() => setScreen("dashboard")} />}
     </div>
   );
 }
