@@ -1664,21 +1664,25 @@ export default function SabiTrack() {
 
   return (
     <div style={{ backgroundColor: C.bg, color: C.text, fontFamily: "'Nunito',sans-serif", minHeight: "100vh" }}>
-      <InstallPrompt
-        visible={showInstallPrompt && (deferredInstallPrompt !== null || isIosInstall)}
-        promptEvent={deferredInstallPrompt}
-        isIos={isIosInstall}
-        onInstall={handleInstallApp}
-        onHelp={handleIosInstallHelp}
-        onDismiss={() => setShowInstallPrompt(false)}
-      />
       {screen === "landing" && <LandingScreen onStart={() => setScreen("signin")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} onLogoClick={() => setScreen("landing")} />}
       {screen === "signup" && <SignupScreen user={user} setUser={setUser} onNext={() => setScreen("wizard")} onSignin={() => setScreen("signin")} isLoading={loading} onLogoClick={() => setScreen("landing")} />}
       {screen === "signin" && <SigninScreen onNext={(email, password) => handleSignin(email, password)} onSignup={() => { setUser({ name: "", email: "", whatsapp: "", password: "", username: "" }); setScreen("signup"); }} isLoading={loading} onLogoClick={() => setScreen("landing")} />}
       {screen === "wizard" && <WizardScreen goal={goal} setGoal={setGoal} onGenerate={generateRoadmap} isEditing={!!goal.id} onLogoClick={() => setScreen("dashboard")} />}
       {screen === "roadmap" && isManualMode ? <ManualRoadmapForm goal={goal} onSave={handleManualRoadmapSave} isLoading={loading} onLogoClick={() => setScreen("dashboard")} /> : screen === "roadmap" && <RoadmapScreen roadmap={roadmap} setRoadmap={setRoadmap} loading={loading} goal={goal} onApprove={() => setScreen("dashboard")} onRegenerate={generateRoadmap} onLogoClick={() => setScreen("dashboard")} />}
       {screen === "settings" && <SettingsScreen user={user} onBack={() => setScreen("dashboard")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} notificationsEnabled={notificationsEnabled} sendTestNotification={sendTestNotification} onLogoClick={() => setScreen("dashboard")} />}
-      {screen === "dashboard" && <DashboardScreen user={user} goal={goal} allGoals={allGoals} currentGoalId={currentGoalId} switchGoal={switchGoal} roadmap={roadmap} tasks={tasks} setTasks={(newTasks) => { setTasks(newTasks); newTasks.forEach((completed, idx) => updateTaskStatus(idx, completed)); }} onCreateGoal={() => { setGoal({ id: "", title: "", duration: "6 months", motivation: "", category: "" }); setScreen("wizard"); }} onEditGoal={(goalToEdit) => { setGoal(goalToEdit); setScreen("wizard"); }} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} dbConnected={dbConnected} onSettings={() => setScreen("settings")} onLogoClick={() => setScreen("dashboard")} />}
+      {screen === "dashboard" && (
+        <>
+          <InstallPrompt
+            visible={showInstallPrompt && (deferredInstallPrompt !== null || isIosInstall)}
+            promptEvent={deferredInstallPrompt}
+            isIos={isIosInstall}
+            onInstall={handleInstallApp}
+            onHelp={handleIosInstallHelp}
+            onDismiss={() => setShowInstallPrompt(false)}
+          />
+          <DashboardScreen user={user} goal={goal} allGoals={allGoals} currentGoalId={currentGoalId} switchGoal={switchGoal} roadmap={roadmap} tasks={tasks} setTasks={(newTasks) => { setTasks(newTasks); newTasks.forEach((completed, idx) => updateTaskStatus(idx, completed)); }} onCreateGoal={() => { setGoal({ id: "", title: "", duration: "6 months", motivation: "", category: "" }); setScreen("wizard"); }} onEditGoal={(goalToEdit) => { setGoal(goalToEdit); setScreen("wizard"); }} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} dbConnected={dbConnected} onSettings={() => setScreen("settings")} onLogoClick={() => setScreen("dashboard")} />
+        </>
+      )}
     </div>
   );
 }
