@@ -366,6 +366,129 @@ const LOADING_MSGS = [
   "this one's gonna go crazy fr",
 ];
 
+function ManualRoadmapForm({ goal, onSave, isLoading }: { goal: { title: string; duration: string; motivation: string; category: string }; onSave: (roadmap: any) => Promise<void>; isLoading: boolean }) {
+  const [yearTarget, setYearTarget] = useState("");
+  const [quarterTarget, setQuarterTarget] = useState("");
+  const [monthTarget, setMonthTarget] = useState("");
+  const [weekTarget, setWeekTarget] = useState("");
+  const [dailyTasks, setDailyTasks] = useState(["", "", ""]);
+  const [newTask, setNewTask] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const addTask = () => {
+    if (!newTask.trim()) return;
+    setDailyTasks([...dailyTasks, newTask.trim()]);
+    setNewTask("");
+  };
+
+  const removeTask = (i: number) => {
+    setDailyTasks(dailyTasks.filter((_, idx) => idx !== i));
+  };
+
+  const updateTask = (i: number, val: string) => {
+    const t = [...dailyTasks];
+    t[i] = val;
+    setDailyTasks(t);
+  };
+
+  const handleSave = async () => {
+    if (!yearTarget.trim() || !quarterTarget.trim() || !monthTarget.trim() || !weekTarget.trim() || dailyTasks.some(t => !t.trim())) {
+      alert("Please fill in all fields");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await onSave({
+        year_target: yearTarget,
+        quarter_target: quarterTarget,
+        month_target: monthTarget,
+        week_target: weekTarget,
+        daily_tasks: dailyTasks,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={page}>
+      <TopNav />
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={H(24, { marginBottom: 6 })}>build your roadmap manually</h2>
+        <p style={{ color: C.muted, fontSize: 14, fontWeight: 600 }}>
+          AI is taking a nap — let's create your plan together
+        </p>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={Card({ background: `${C.amber}0D`, border: `1.5px solid ${C.amber}30`, padding: "11px 14px", borderRadius: 16, display: "flex", gap: 10, alignItems: "center" })}>
+          <span style={{ fontSize: 16 }}>✍️</span>
+          <span style={{ fontSize: 13, color: C.amber, fontWeight: 700 }}>fill in each level of your roadmap</span>
+        </div>
+
+        {[
+          { key: "year", emoji: "📅", label: "year target", value: yearTarget, onChange: setYearTarget, sub: "your ultimate goal by end of year" },
+          { key: "quarter", emoji: "📊", label: "quarter target", value: quarterTarget, onChange: setQuarterTarget, sub: "what you'll achieve in 3 months" },
+          { key: "month", emoji: "🎯", label: "month target", value: monthTarget, onChange: setMonthTarget, sub: "your focus for this month" },
+          { key: "week", emoji: "⚡", label: "week target", value: weekTarget, onChange: setWeekTarget, sub: "this week's mission" },
+        ].map((t) => (
+          <div key={t.key} style={Card({ borderLeft: `3px solid ${C.lime}`, paddingLeft: 18 })}>
+            <div style={{ fontSize: 10, color: C.lime, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6 }}>{t.emoji} {t.label}</div>
+            <div style={{ fontSize: 11, color: C.muted, marginBottom: 8, fontWeight: 500 }}>{t.sub}</div>
+            <textarea
+              value={t.value}
+              onChange={e => t.onChange(e.target.value)}
+              placeholder="write your target..."
+              rows={2}
+              style={{ width: "100%", background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, lineHeight: 1.65, outline: "none", resize: "none", padding: "4px 0" }}
+            />
+          </div>
+        ))}
+
+        <div style={Card({ borderLeft: `3px solid ${C.pink}`, paddingLeft: 18 })}>
+          <div style={{ fontSize: 10, color: C.pink, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>🔥 daily moves ({dailyTasks.length})</div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {dailyTasks.map((task, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 24, height: 24, borderRadius: 8, background: `${C.pink}18`, border: `1px solid ${C.pink}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: C.pink, flexShrink: 0 }}>
+                  {i + 1}
+                </div>
+                <input
+                  value={task}
+                  onChange={e => updateTask(i, e.target.value)}
+                  placeholder="write your daily move..."
+                  style={{ flex: 1, background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, padding: "5px 0", outline: "none" }}
+                />
+                <button onClick={() => removeTask(i)} style={{ width: 26, height: 26, borderRadius: "50%", background: C.surface, border: `1px solid ${C.border}`, color: C.muted, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 1, fontFamily: "inherit" }}>×</button>
+              </div>
+            ))}
+
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+              <div style={{ width: 24, height: 24, borderRadius: 8, background: `${C.lime}18`, border: `1px dashed ${C.lime}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: C.lime, flexShrink: 0 }}>+</div>
+              <input
+                value={newTask}
+                onChange={e => setNewTask(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && addTask()}
+                placeholder="add more daily moves... (press Enter)"
+                style={{ flex: 1, background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, padding: "5px 0", outline: "none" }}
+              />
+              {newTask.trim() && (
+                <button onClick={addTask} style={{ padding: "5px 12px", borderRadius: 100, background: `${C.lime}18`, border: `1px solid ${C.lime}40`, color: C.lime, fontSize: 12, fontFamily: "inherit", fontWeight: 800, cursor: "pointer" }}>add</button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <button onClick={handleSave} disabled={saving || isLoading} style={Lime({ width: "100%", fontSize: 15, padding: "16px", opacity: saving || isLoading ? 0.6 : 1 })}>
+          {saving || isLoading ? "saving..." : "lock it in 🔒"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function RoadmapScreen({ roadmap, setRoadmap, loading, goal, onApprove, onRegenerate }: { roadmap: Record<string, any> | null; setRoadmap: React.Dispatch<React.SetStateAction<Record<string, any> | null>>; loading: boolean; goal: { title: string; duration: string; motivation: string; category: string }; onApprove: () => void; onRegenerate: () => void }) {
   const [msgIdx, setMsgIdx] = useState(0);
   const [newTask, setNewTask] = useState("");
@@ -1072,6 +1195,7 @@ export default function SabiTrack() {
   const [bgMode, setBgMode] = useState<"white" | "black">("white");
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [isManualMode, setIsManualMode] = useState(false);
 
   useEffect(() => {
     Object.assign(C, bgMode === "black" ? darkPalette : lightPalette);
@@ -1364,6 +1488,28 @@ export default function SabiTrack() {
     }
   };
 
+  const handleManualRoadmapSave = async (roadmapData: any) => {
+    try {
+      setLoading(true);
+      
+      // For editing, delete existing roadmap and tasks first
+      if (goal.id && roadmap) {
+        await supabase.from("tasks").delete().eq("roadmap_id", roadmap.id);
+        await supabase.from("roadmaps").delete().eq("id", roadmap.id);
+      }
+      
+      await saveRoadmap(roadmapData);
+      setTasks(new Array(roadmapData.daily_tasks.length).fill(false));
+      setIsManualMode(false);
+      setScreen("dashboard");
+    } catch (error) {
+      console.error("Error saving manual roadmap:", error);
+      alert("Failed to save roadmap. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const generateRoadmap = async () => {
     await saveGoal(goal);
     
@@ -1395,23 +1541,12 @@ export default function SabiTrack() {
       
       await saveRoadmap(parsed);
       setTasks(new Array(parsed.daily_tasks.length).fill(false));
-    } catch {
-      const fb = {
-        year_target: `You will fully achieve: ${goal.title}`,
-        quarter_target: "Complete the first major phase and build unstoppable momentum",
-        month_target: "Establish daily habits and hit your first visible milestone",
-        week_target: "Set up your systems and take the first 3 real action steps",
-        daily_tasks: ["Map out your detailed 3-month plan", "Identify the 3 biggest blockers and plan around them", "Set up a 5-minute daily progress journal"],
-      };
-      
-      // For editing, delete existing roadmap and tasks first
-      if (goal.id && roadmap) {
-        await supabase.from("tasks").delete().eq("roadmap_id", roadmap.id);
-        await supabase.from("roadmaps").delete().eq("id", roadmap.id);
-      }
-      
-      await saveRoadmap(fb);
-      setTasks([false, false, false]);
+      setIsManualMode(false);
+    } catch (error) {
+      console.error("AI generation failed, switching to manual mode:", error);
+      // Switch to manual mode for user to enter roadmap
+      setIsManualMode(true);
+      setRoadmap(null);
     }
     setLoading(false);
   };
@@ -1422,7 +1557,7 @@ export default function SabiTrack() {
       {screen === "signup" && <SignupScreen user={user} setUser={setUser} onNext={() => setScreen("wizard")} onSignin={() => setScreen("signin")} isLoading={loading} />}
       {screen === "signin" && <SigninScreen onNext={(email, password) => handleSignin(email, password)} onSignup={() => { setUser({ name: "", email: "", whatsapp: "", password: "", username: "" }); setScreen("signup"); }} isLoading={loading} />}
       {screen === "wizard" && <WizardScreen goal={goal} setGoal={setGoal} onGenerate={generateRoadmap} isEditing={!!goal.id} />}
-      {screen === "roadmap" && <RoadmapScreen roadmap={roadmap} setRoadmap={setRoadmap} loading={loading} goal={goal} onApprove={() => setScreen("dashboard")} onRegenerate={generateRoadmap} />}
+      {screen === "roadmap" && isManualMode ? <ManualRoadmapForm goal={goal} onSave={handleManualRoadmapSave} isLoading={loading} /> : screen === "roadmap" && <RoadmapScreen roadmap={roadmap} setRoadmap={setRoadmap} loading={loading} goal={goal} onApprove={() => setScreen("dashboard")} onRegenerate={generateRoadmap} />}
       {screen === "settings" && <SettingsScreen user={user} onBack={() => setScreen("dashboard")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} notificationsEnabled={notificationsEnabled} sendTestNotification={sendTestNotification} />}
       {screen === "dashboard" && <DashboardScreen user={user} goal={goal} allGoals={allGoals} currentGoalId={currentGoalId} switchGoal={switchGoal} roadmap={roadmap} tasks={tasks} setTasks={(newTasks) => { setTasks(newTasks); newTasks.forEach((completed, idx) => updateTaskStatus(idx, completed)); }} onCreateGoal={() => { setGoal({ id: "", title: "", duration: "6 months", motivation: "", category: "" }); setScreen("wizard"); }} onEditGoal={(goalToEdit) => { setGoal(goalToEdit); setScreen("wizard"); }} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} dbConnected={dbConnected} onSettings={() => setScreen("settings")} />}
     </div>
