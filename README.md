@@ -1,44 +1,47 @@
 # SabiTrack
 
-AI-powered accountability SaaS that turns long-term personal and professional goals into structured daily actions.
+AI-powered accountability platform that turns goals into daily execution habits.
 
-## 🎯 Core Features
+## 🎯 What it does
 
-- **Goal Definition** - Users define one major goal with a timeline
-- **AI Roadmap Generation** - Intelligent breakdown into yearly, quarterly, monthly, weekly, and daily targets
-- **WhatsApp Accountability** - Primary channel for:
-  - Daily task reminders
-  - Task completion updates
-  - Carryover of unfinished tasks
-  - Weekly progress reviews
-- **Progress Tracking** - Visual progress and completion metrics
-- **Execution Discipline** - Minimize friction and focus on consistent daily action
+- Create and manage multiple goals
+- Generate AI-powered roadmaps with yearly, quarterly, monthly, weekly, and daily targets
+- Track daily task completion and progress
+- Switch between goals from the dashboard
+- Toggle app background between light and dark mode
+- See live Supabase database connectivity status in the dashboard
 
 ## 🛠 Tech Stack
 
-- **Frontend**: Next.js 14+ with TypeScript
-- **Styling**: Tailwind CSS
+- **Framework**: Next.js 14
 - **Language**: TypeScript
-- **Linting**: ESLint
+- **Backend**: Supabase
+- **Styling**: Custom CSS with inline styling and `app/globals.css`
+- **Data**: Supabase tables for users, goals, roadmaps, and tasks
 
 ## 📋 Getting Started
 
 ### Prerequisites
 - Node.js 18+
-- npm or yarn
+- npm
+- Supabase project with a `users`, `goals`, `roadmaps`, and `tasks` schema
 
-### Installation
+### Environment Variables
+Create a `.env.local` file with:
 
 ```bash
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
-
-# Open browser
-# Visit http://localhost:3000
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_public_key
 ```
+
+### Install and Run
+
+```bash
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000` in your browser.
 
 ### Build for Production
 
@@ -47,44 +50,33 @@ npm run build
 npm start
 ```
 
-## 📁 Project Structure
+## 🔧 Key Files
 
-```
-SabiTrack/
-├── app/
-│   ├── layout.tsx          # Root layout
-│   ├── page.tsx            # Home page
-│   └── globals.css         # Global styles
-├── components/             # Reusable React components
-├── public/                 # Static assets
-├── .eslintrc.json         # ESLint configuration
-├── next.config.mjs        # Next.js configuration
-├── tailwind.config.ts     # Tailwind configuration
-├── tsconfig.json          # TypeScript configuration
-└── package.json           # Dependencies
-```
+- `app/page.tsx` — main app UI and logic
+- `app/layout.tsx` — root layout and global metadata
+- `app/globals.css` — global styling and animations
+- `utils/supabase/client.ts` — Supabase browser client setup
+- `middleware.ts` — Supabase auth session middleware
 
-## 🔄 Development Workflow
+## 🚀 Usage
 
-1. Create components in `/components`
-2. Add pages in `/app`
-3. Use TypeScript for type safety
-4. Run `npm run lint` to check code quality
-5. Commit changes with descriptive messages
+1. Open the app and sign up with your name, email, and WhatsApp number.
+2. Create a goal using the onboarding wizard.
+3. View your generated roadmap and daily moves.
+4. Approve the roadmap to enter the dashboard.
+5. Switch goals or create a new one from the top selector.
+6. Toggle between light and dark backgrounds from the dashboard header.
 
-## 🚀 Planned Features
+## ✅ Notes
 
-- WhatsApp bot integration
-- AI-powered goal analysis
-- Goal progress dashboard
-- Weekly review analytics
-- Goal templates
-- Mobile app
+- The dashboard shows a live DB connection status badge.
+- Goal edits use the same wizard flow for preview and regeneration.
+- The app is currently wired to Supabase and supports multiple user goals.
 
-## 📝 License
+## 📦 License
 
 MIT
 
 ---
 
-**SabiTrack** - Execution Discipline for Your Goals
+**SabiTrack** - Execute your goals with clarity and momentum.
