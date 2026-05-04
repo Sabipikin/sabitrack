@@ -39,6 +39,22 @@ const darkPalette = {
 
 let C = { ...lightPalette };
 
+type DashboardScreenProps = {
+  user: { name: string; email: string; whatsapp: string };
+  goal: any;
+  allGoals: any[];
+  currentGoalId: string | null;
+  switchGoal: (id: string) => void;
+  roadmap: Record<string, any> | null;
+  tasks: boolean[];
+  setTasks: (tasks: boolean[]) => void;
+  onCreateGoal: () => void;
+  onEditGoal: (goal: any) => void;
+  bgMode: "white" | "black";
+  toggleBgMode: () => void;
+  dbConnected: boolean | null;
+  onSettings: () => void;
+};
 
 const page: React.CSSProperties = {
   maxWidth: 430,
@@ -405,7 +421,135 @@ function RoadmapScreen({ roadmap, setRoadmap, loading, goal, onApprove, onRegene
   );
 }
 
-function DashboardScreen({ user, goal, allGoals, currentGoalId, switchGoal, roadmap, tasks, setTasks, onCreateGoal, onEditGoal, bgMode, toggleBgMode, dbConnected }: { user: { name: string; email: string; whatsapp: string }; goal: any; allGoals: any[]; currentGoalId: string | null; switchGoal: (id: string) => void; roadmap: Record<string, any> | null; tasks: boolean[]; setTasks: (tasks: boolean[]) => void; onCreateGoal: () => void; onEditGoal: (goal: any) => void; bgMode: "white" | "black"; toggleBgMode: () => void; dbConnected: boolean | null }) {
+function SettingsScreen({ user, onBack, bgMode, toggleBgMode, notificationsEnabled, sendTestNotification }: { user: { name: string; email: string; whatsapp: string }; onBack: () => void; bgMode: "white" | "black"; toggleBgMode: () => void; notificationsEnabled: boolean; sendTestNotification: () => void }) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const handlePasswordChange = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setMessage("Please fill all fields");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setMessage("New passwords don't match");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setMessage("Password must be at least 6 characters");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setMessage("Password updated successfully!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: any) {
+      setMessage(error.message || "Failed to update password");
+    }
+    setIsChangingPassword(false);
+  };
+
+  return (
+    <div style={page}>
+      <TopNav right={<button onClick={onBack} style={Ghost({ padding: "9px 18px", fontSize: 13 })}>← back</button>} />
+      <div className="fadeUp" style={{ paddingTop: 16 }}>
+        <h2 style={H(24, { marginBottom: 6 })}>settings</h2>
+        <p style={{ color: C.muted, fontSize: 14, fontWeight: 600, marginBottom: 32 }}>manage your account and preferences</p>
+
+        <div style={Card({ marginBottom: 20 })}>
+          <div style={{ fontSize: 12, color: C.muted, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 800, marginBottom: 16 }}>👤 profile</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 11, color: C.muted, marginBottom: 6, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}>name</label>
+              <div style={{ padding: "12px 14px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, fontSize: 14 }}>{user.name}</div>
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, color: C.muted, marginBottom: 6, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}>email</label>
+              <div style={{ padding: "12px 14px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, fontSize: 14 }}>{user.email}</div>
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, color: C.muted, marginBottom: 6, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}>whatsapp</label>
+              <div style={{ padding: "12px 14px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, fontSize: 14 }}>{user.whatsapp || "Not set"}</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={Card({ marginBottom: 20 })}>
+          <div style={{ fontSize: 12, color: C.muted, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 800, marginBottom: 16 }}>🔒 change password</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <input type="password" placeholder="Current password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} style={Input()} />
+            <input type="password" placeholder="New password" value={newPassword} onChange={e => setNewPassword(e.target.value)} style={Input()} />
+            <input type="password" placeholder="Confirm new password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} style={Input()} />
+            {message && (
+              <div style={{ padding: "10px 12px", background: message.includes("success") ? `${C.green}10` : `${C.pink}10`, border: `1px solid ${message.includes("success") ? C.green : C.pink}30`, borderRadius: 8, fontSize: 13, color: message.includes("success") ? C.green : C.pink }}>
+                {message}
+              </div>
+            )}
+            <button onClick={handlePasswordChange} disabled={isChangingPassword} style={Lime({ width: "100%", opacity: isChangingPassword ? 0.6 : 1 })}>
+              {isChangingPassword ? "updating..." : "update password"}
+            </button>
+          </div>
+        </div>
+
+        <div style={Card({ marginBottom: 20 })}>
+          <div style={{ fontSize: 12, color: C.muted, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 800, marginBottom: 16 }}>⚙️ preferences</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Theme</div>
+              <div style={{ fontSize: 12, color: C.muted }}>Choose your preferred theme</div>
+            </div>
+            <button onClick={toggleBgMode} style={Ghost({ padding: "10px 16px" })}>
+              {bgMode === "black" ? "☀️ Light Mode" : "🌙 Dark Mode"}
+            </button>
+          </div>
+        </div>
+
+        <div style={Card()}>
+          <div style={{ fontSize: 12, color: C.muted, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 800, marginBottom: 16 }}>🔔 notifications</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Browser reminders</div>
+                <div style={{ fontSize: 12, color: C.muted }}>Get daily reminders in your browser</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 44, height: 24, borderRadius: 12, background: notificationsEnabled ? C.lime : C.border, position: "relative", cursor: "pointer" }}>
+                  <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: notificationsEnabled ? 22 : 2, transition: "all .2s" }} />
+                </div>
+                {notificationsEnabled && <Pill color={C.green}>enabled</Pill>}
+              </div>
+            </div>
+            {notificationsEnabled ? (
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={sendTestNotification} style={Ghost({ flex: 1, fontSize: 13 })}>
+                  test notification
+                </button>
+                <div style={{ padding: "10px 14px", background: `${C.lime}10`, border: `1px solid ${C.lime}30`, borderRadius: 8, fontSize: 12, color: C.lime, flex: 2 }}>
+                  Daily reminders at 8 AM
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: "10px 12px", background: `${C.amber}10`, border: `1px solid ${C.amber}30`, borderRadius: 8, fontSize: 13, color: C.amber }}>
+                Enable browser notifications to get daily reminders.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardScreen(props: DashboardScreenProps) {
+  const { user, goal, allGoals, currentGoalId, switchGoal, roadmap, tasks, setTasks, onCreateGoal, onEditGoal, bgMode, toggleBgMode, dbConnected, onSettings } = props;
   const [activeTab, setActiveTab] = useState("today");
   const [showGoalMenu, setShowGoalMenu] = useState(false);
   const done = tasks.filter(Boolean).length;
@@ -416,6 +560,21 @@ function DashboardScreen({ user, goal, allGoals, currentGoalId, switchGoal, road
   const barH = [72, 55, 88, 40, 65, 20, 0];
   const days = ["M", "T", "W", "T", "F", "S", "S"];
 
+  // Categorize goals
+  const now = new Date();
+  const activeGoals = allGoals.filter(g => {
+    // Goals created within last 30 days are considered active
+    const createdAt = new Date(g.created_at);
+    const daysSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+    return daysSinceCreation <= 30;
+  });
+  const pastGoals = allGoals.filter(g => {
+    const createdAt = new Date(g.created_at);
+    const daysSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+    return daysSinceCreation > 30;
+  });
+  const futureGoals = []; // For now, no future goals concept
+
   return (
     <div style={{ maxWidth: 430, margin: "0 auto", background: C.bg, minHeight: "100vh", color: C.text, fontFamily: "'Nunito',sans-serif" }}>
       {/* Header */}
@@ -424,7 +583,10 @@ function DashboardScreen({ user, goal, allGoals, currentGoalId, switchGoal, road
           <Logo />
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button onClick={toggleBgMode} style={Ghost({ padding: "10px 12px", fontSize: 12, color: C.text, borderColor: C.muted })}>
-              {bgMode === "black" ? "white bg" : "black bg"}
+              {bgMode === "black" ? "☀️ Light" : "🌙 Dark"}
+            </button>
+            <button onClick={onSettings} style={Ghost({ padding: "10px 12px", fontSize: 12, color: C.text, borderColor: C.muted })}>
+              ⚙️ Settings
             </button>
             <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", background: dbConnected ? `${C.green}10` : `${C.pink}10`, borderRadius: 8, border: `1px solid ${dbConnected ? `${C.green}30` : `${C.pink}30`}` }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: dbConnected ? C.green : C.pink }} />
@@ -549,7 +711,7 @@ function DashboardScreen({ user, goal, allGoals, currentGoalId, switchGoal, road
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 2, padding: "0 18px", borderBottom: `1px solid ${C.border}`, background: C.bg }}>
-        {[{ id: "today", label: "⚡ Today" }, { id: "progress", label: "📊 Progress" }, { id: "whatsapp", label: "💬 WhatsApp" }].map(t => (
+        {[{ id: "today", label: "⚡ Today" }, { id: "goals", label: "🎯 Goals" }, { id: "progress", label: "📊 Progress" }, { id: "whatsapp", label: "💬 WhatsApp" }].map(t => (
           <button 
             key={t.id} 
             onClick={() => setActiveTab(t.id)} 
@@ -573,6 +735,97 @@ function DashboardScreen({ user, goal, allGoals, currentGoalId, switchGoal, road
 
       {/* Content */}
       <div style={{ padding: "18px 18px 110px", display: "flex", flexDirection: "column", gap: 12 }}>
+        {activeTab === "goals" && (<>
+          <div className="fadeUp">
+            <h2 style={H(22, { marginBottom: 4 })}>your goals</h2>
+            <p style={{ color: C.muted, fontSize: 14, fontWeight: 600 }}>track your journey, create new ones</p>
+          </div>
+
+          {/* Active Goals */}
+          {activeGoals.length > 0 && (
+            <div className="fadeUp s1">
+              <div style={{ fontSize: 12, color: C.lime, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 800, marginBottom: 12 }}>🔥 active goals</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {activeGoals.map(g => (
+                  <div key={g.id} style={Card({ cursor: "pointer", borderLeft: currentGoalId === g.id ? `3px solid ${C.lime}` : `3px solid ${C.border}` })} onClick={() => switchGoal(g.id)}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, color: currentGoalId === g.id ? C.lime : C.text }}>{g.title}</div>
+                        <div style={{ fontSize: 13, color: C.muted, marginBottom: 6 }}>{g.motivation?.substring(0, 60)}...</div>
+                      </div>
+                      {currentGoalId === g.id && <Pill color={C.lime}>current</Pill>}
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <Pill color={C.violet}>{g.category}</Pill>
+                        <Pill color={C.cyan}>{g.duration}</Pill>
+                      </div>
+                      <button onClick={(e) => { e.stopPropagation(); onEditGoal(g); }} style={Ghost({ padding: "6px 12px", fontSize: 12 })}>
+                        edit
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Past Goals */}
+          {pastGoals.length > 0 && (
+            <div className="fadeUp s2">
+              <div style={{ fontSize: 12, color: C.muted, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 800, marginBottom: 12 }}>📚 past goals</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {pastGoals.slice(0, 3).map(g => (
+                  <div key={g.id} style={Card({ opacity: 0.7 })}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{g.title}</div>
+                        <div style={{ fontSize: 12, color: C.muted }}>{g.motivation?.substring(0, 50)}...</div>
+                      </div>
+                      <Pill color={C.green}>completed</Pill>
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <Pill color={C.violet} style={{ opacity: 0.6 }}>{g.category}</Pill>
+                      <Pill color={C.cyan} style={{ opacity: 0.6 }}>{g.duration}</Pill>
+                    </div>
+                  </div>
+                ))}
+                {pastGoals.length > 3 && (
+                  <div style={{ textAlign: "center", padding: "12px", color: C.muted, fontSize: 13 }}>
+                    +{pastGoals.length - 3} more completed goals
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Create New Goal */}
+          <div className="fadeUp s3" style={Card({ background: `${C.lime}0D`, border: `1.5px solid ${C.lime}30`, cursor: "pointer" })} onClick={onCreateGoal}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ width: 48, height: 48, borderRadius: 12, background: C.lime, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>✨</div>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: C.lime, marginBottom: 2 }}>create new goal</div>
+                <div style={{ fontSize: 13, color: C.muted }}>start your next big win</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="fadeUp s4" style={Card()}>
+            <div style={{ fontSize: 12, color: C.muted, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 800, marginBottom: 16 }}>📈 your stats</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ textAlign: "center", padding: "16px 12px", background: `${C.violet}10`, borderRadius: 12, border: `1px solid ${C.violet}25` }}>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 24, fontWeight: 800, color: C.violet, marginBottom: 4 }}>{allGoals.length}</div>
+                <div style={{ fontSize: 12, color: C.muted, fontWeight: 700 }}>total goals</div>
+              </div>
+              <div style={{ textAlign: "center", padding: "16px 12px", background: `${C.green}10`, borderRadius: 12, border: `1px solid ${C.green}25` }}>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 24, fontWeight: 800, color: C.green, marginBottom: 4 }}>{pastGoals.length}</div>
+                <div style={{ fontSize: 12, color: C.muted, fontWeight: 700 }}>completed</div>
+              </div>
+            </div>
+          </div>
+        </>)}
+
         {activeTab === "today" && (<>
           <div className="fadeUp">
             <div style={{ fontSize: 13, color: C.muted, fontWeight: 600, marginBottom: 2 }}>hey {firstName} 👋</div>
@@ -721,7 +974,7 @@ function DashboardScreen({ user, goal, allGoals, currentGoalId, switchGoal, road
       </div>
 
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: C.card, borderTop: `1.5px solid ${C.border}`, padding: "10px 18px 28px", display: "flex", justifyContent: "space-around", zIndex: 100 }}>
-        {[{ id: "today", icon: "⚡", label: "today" }, { id: "progress", icon: "📊", label: "progress" }, { id: "whatsapp", icon: "💬", label: "whatsapp" }].map(n => (
+        {[{ id: "today", icon: "⚡", label: "today" }, { id: "goals", icon: "🎯", label: "goals" }, { id: "progress", icon: "📊", label: "progress" }, { id: "whatsapp", icon: "💬", label: "whatsapp" }].map(n => (
           <button key={n.id} onClick={() => setActiveTab(n.id)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, background: activeTab === n.id ? `${C.lime}12` : "none", border: "none", cursor: "pointer", padding: "7px 22px", borderRadius: 14 }}>
             <span style={{ fontSize: 20 }}>{n.icon}</span>
             <span style={{ fontSize: 11, fontFamily: "inherit", fontWeight: 800, color: activeTab === n.id ? C.lime : C.muted }}>{n.label}</span>
@@ -745,10 +998,36 @@ export default function SabiTrack() {
   const [userId, setUserId] = useState<string | null>(null);
   const [bgMode, setBgMode] = useState<"white" | "black">("white");
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   useEffect(() => {
     Object.assign(C, bgMode === "black" ? darkPalette : lightPalette);
   }, [bgMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("Notification" in window)) return;
+
+    if (Notification.permission === "granted") {
+      setNotificationsEnabled(true);
+      return;
+    }
+
+    if (Notification.permission !== "denied") {
+      Notification.requestPermission().then(permission => {
+        setNotificationsEnabled(permission === "granted");
+      });
+    }
+  }, []);
+
+  const sendTestNotification = () => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+
+    new Notification("Sabi Track Reminder", {
+      body: "You've got a daily target waiting. Open the app and crush it!",
+    });
+  };
 
   // Load user and their data on mount
   useEffect(() => {
@@ -1040,7 +1319,8 @@ export default function SabiTrack() {
       {screen === "signup" && <SignupScreen user={user} setUser={(u) => { setUser(u); saveUserSignup(u); }} onNext={() => setScreen("wizard")} />}
       {screen === "wizard" && <WizardScreen goal={goal} setGoal={setGoal} onGenerate={generateRoadmap} isEditing={!!goal.id} />}
       {screen === "roadmap" && <RoadmapScreen roadmap={roadmap} setRoadmap={setRoadmap} loading={loading} goal={goal} onApprove={() => setScreen("dashboard")} onRegenerate={generateRoadmap} />}
-      {screen === "dashboard" && <DashboardScreen user={user} goal={goal} allGoals={allGoals} currentGoalId={currentGoalId} switchGoal={switchGoal} roadmap={roadmap} tasks={tasks} setTasks={(newTasks) => { setTasks(newTasks); newTasks.forEach((completed, idx) => updateTaskStatus(idx, completed)); }} onCreateGoal={() => { setGoal({ id: "", title: "", duration: "6 months", motivation: "", category: "" }); setScreen("wizard"); }} onEditGoal={(goalToEdit) => { setGoal(goalToEdit); setScreen("wizard"); }} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} dbConnected={dbConnected} />}
+      {screen === "settings" && <SettingsScreen user={user} onBack={() => setScreen("dashboard")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} notificationsEnabled={notificationsEnabled} sendTestNotification={sendTestNotification} />}
+      {screen === "dashboard" && <DashboardScreen user={user} goal={goal} allGoals={allGoals} currentGoalId={currentGoalId} switchGoal={switchGoal} roadmap={roadmap} tasks={tasks} setTasks={(newTasks) => { setTasks(newTasks); newTasks.forEach((completed, idx) => updateTaskStatus(idx, completed)); }} onCreateGoal={() => { setGoal({ id: "", title: "", duration: "6 months", motivation: "", category: "" }); setScreen("wizard"); }} onEditGoal={(goalToEdit) => { setGoal(goalToEdit); setScreen("wizard"); }} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} dbConnected={dbConnected} onSettings={() => setScreen("settings")} />}
     </div>
   );
 }
