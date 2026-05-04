@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 const lightPalette = {
@@ -40,7 +40,7 @@ const darkPalette = {
 let C = { ...lightPalette };
 
 
-const page = {
+const page: React.CSSProperties = {
   maxWidth: 430,
   margin: "0 auto",
   padding: "0 18px 110px",
@@ -49,11 +49,11 @@ const page = {
   flexDirection: "column",
 };
 
-const H = (sz = 30, x: React.CSSProperties = {}) => ({ fontFamily: "'Syne',sans-serif", fontSize: sz, fontWeight: 800, lineHeight: 1.15, letterSpacing: -0.5, color: C.text, ...x });
-const Card = (x: React.CSSProperties = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: "18px", boxShadow: `0 1px 3px ${C.shadow}`, ...x });
-const Lime = (x: React.CSSProperties = {}) => ({ background: C.lime, color: "#FFFFFF", border: "none", borderRadius: 12, padding: "12px 24px", fontFamily: "inherit", fontSize: 14, fontWeight: 700, cursor: "pointer", letterSpacing: -0.2, transition: "all .2s", ...x });
-const Ghost = (x: React.CSSProperties = {}) => ({ background: "transparent", color: C.muted, border: `1.5px solid ${C.border}`, borderRadius: 12, padding: "10px 20px", fontFamily: "inherit", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all .2s", ...x });
-const Input = (x: React.CSSProperties = {}) => ({ width: "100%", padding: "12px 14px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 500, outline: "none", boxSizing: "border-box", ...x });
+const H = (sz = 30, x: React.CSSProperties = {}): React.CSSProperties => ({ fontFamily: "'Syne',sans-serif", fontSize: sz, fontWeight: 800, lineHeight: 1.15, letterSpacing: -0.5, color: C.text, ...x });
+const Card = (x: React.CSSProperties = {}): React.CSSProperties => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: "18px", boxShadow: `0 1px 3px ${C.shadow}`, ...x });
+const Lime = (x: React.CSSProperties = {}): React.CSSProperties => ({ background: C.lime, color: "#FFFFFF", border: "none", borderRadius: 12, padding: "12px 24px", fontFamily: "inherit", fontSize: 14, fontWeight: 700, cursor: "pointer", letterSpacing: -0.2, transition: "all .2s", ...x });
+const Ghost = (x: React.CSSProperties = {}): React.CSSProperties => ({ background: "transparent", color: C.muted, border: `1.5px solid ${C.border}`, borderRadius: 12, padding: "10px 20px", fontFamily: "inherit", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all .2s", ...x });
+const Input = (x: React.CSSProperties = {}): React.CSSProperties => ({ width: "100%", padding: "12px 14px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 500, outline: "none", boxSizing: "border-box", ...x });
 
 function Logo() {
   return (
@@ -182,7 +182,7 @@ const DURATIONS = [
   { val: "2 years", label: "2yr", sub: "life change" },
 ];
 
-function WizardScreen({ goal, setGoal, onGenerate, isEditing = false }: { goal: { title: string; duration: string; motivation: string; category: string }; setGoal: (goal: { title: string; duration: string; motivation: string; category: string }) => void; onGenerate: () => void; isEditing?: boolean }) {
+function WizardScreen({ goal, setGoal, onGenerate, isEditing = false }: { goal: { id: string; title: string; duration: string; motivation: string; category: string }; setGoal: React.Dispatch<React.SetStateAction<{ id: string; title: string; duration: string; motivation: string; category: string }>>; onGenerate: () => void; isEditing?: boolean }) {
   const [step, setStep] = useState(1);
   const canGo = [
     goal.title.trim().length > 5,
@@ -277,7 +277,7 @@ const LOADING_MSGS = [
   "this one's gonna go crazy fr",
 ];
 
-function RoadmapScreen({ roadmap, setRoadmap, loading, goal, onApprove, onRegenerate }: { roadmap: Record<string, any> | null; setRoadmap: (roadmap: Record<string, any>) => void; loading: boolean; goal: { title: string; duration: string; motivation: string; category: string }; onApprove: () => void; onRegenerate: () => void }) {
+function RoadmapScreen({ roadmap, setRoadmap, loading, goal, onApprove, onRegenerate }: { roadmap: Record<string, any> | null; setRoadmap: React.Dispatch<React.SetStateAction<Record<string, any> | null>>; loading: boolean; goal: { title: string; duration: string; motivation: string; category: string }; onApprove: () => void; onRegenerate: () => void }) {
   const [msgIdx, setMsgIdx] = useState(0);
   const [newTask, setNewTask] = useState("");
 
@@ -287,12 +287,23 @@ function RoadmapScreen({ roadmap, setRoadmap, loading, goal, onApprove, onRegene
     return () => clearInterval(t);
   }, [loading]);
 
-  const updateTier = (key: string, val: string) => setRoadmap(r => ({ ...r, [key]: val }));
-  const updateTask = (i: number, val: string) => setRoadmap(r => { const t = [...r.daily_tasks]; t[i] = val; return { ...r, daily_tasks: t }; });
-  const removeTask = (i: number) => setRoadmap(r => ({ ...r, daily_tasks: r.daily_tasks.filter((_: unknown, idx: number) => idx !== i) }));
+  const updateTier = (key: string, val: string) => setRoadmap(r => r ? ({ ...r, [key]: val }) : r);
+  const updateTask = (i: number, val: string) => setRoadmap(r => {
+    if (!r) return r;
+    const t = [...r.daily_tasks];
+    t[i] = val;
+    return { ...r, daily_tasks: t };
+  });
+  const removeTask = (i: number) => setRoadmap(r => {
+    if (!r) return r;
+    return { ...r, daily_tasks: r.daily_tasks.filter((_: unknown, idx: number) => idx !== i) };
+  });
   const addTask = () => {
     if (!newTask.trim()) return;
-    setRoadmap(r => ({ ...r, daily_tasks: [...r.daily_tasks, newTask.trim()] }));
+    setRoadmap(r => {
+      if (!r) return r;
+      return { ...r, daily_tasks: [...r.daily_tasks, newTask.trim()] };
+    });
     setNewTask("");
   };
 
@@ -401,7 +412,7 @@ function DashboardScreen({ user, goal, allGoals, currentGoalId, switchGoal, road
   const total = tasks.length;
   const xp = total ? Math.round((done / total) * 100) : 0;
   const firstName = user.name?.split(" ")[0] || "there";
-  const dailyTasks = roadmap?.daily_tasks || ["plan your week", "take one action", "log your progress"];
+  const dailyTasks: string[] = roadmap?.daily_tasks || ["plan your week", "take one action", "log your progress"];
   const barH = [72, 55, 88, 40, 65, 20, 0];
   const days = ["M", "T", "W", "T", "F", "S", "S"];
 
@@ -722,7 +733,7 @@ function DashboardScreen({ user, goal, allGoals, currentGoalId, switchGoal, road
 }
 
 export default function SabiTrack() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [screen, setScreen] = useState("landing");
   const [user, setUser] = useState({ name: "", email: "", whatsapp: "" });
   const [goal, setGoal] = useState({ id: "", title: "", duration: "6 months", motivation: "", category: "" });
@@ -815,7 +826,7 @@ export default function SabiTrack() {
     };
     
     loadUserData();
-  }, []);
+  }, [supabase]);
 
   const switchGoal = async (goalId: string) => {
     setCurrentGoalId(goalId);
