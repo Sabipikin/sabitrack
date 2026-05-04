@@ -89,6 +89,64 @@ function TopNav({ right, onLogoClick }: { right?: React.ReactNode; onLogoClick?:
   );
 }
 
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+};
+
+function InstallPrompt({
+  visible,
+  promptEvent,
+  isIos,
+  onInstall,
+  onHelp,
+  onDismiss,
+}: {
+  visible: boolean;
+  promptEvent: BeforeInstallPromptEvent | null;
+  isIos: boolean;
+  onInstall: () => void;
+  onHelp: () => void;
+  onDismiss: () => void;
+}) {
+  if (!visible) return null;
+
+  const message = promptEvent
+    ? "Install SabiTrack for faster access and offline-ready use."
+    : "Add SabiTrack to your Home Screen from Safari for a native-like app experience.";
+
+  return (
+    <div style={{
+      position: "fixed",
+      left: "50%",
+      bottom: 20,
+      transform: "translateX(-50%)",
+      width: "min(420px, calc(100% - 24px))",
+      background: C.card,
+      border: `1px solid ${C.border}`,
+      borderRadius: 18,
+      padding: "16px 18px",
+      boxShadow: "0 20px 40px rgba(0, 0, 0, 0.12)",
+      zIndex: 999,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 6 }}>Install SabiTrack</div>
+          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>{message}</div>
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
+          {promptEvent ? (
+            <button onClick={onInstall} style={Lime({ padding: "10px 16px", whiteSpace: "nowrap" })}>Install app</button>
+          ) : isIos ? (
+            <button onClick={onHelp} style={Lime({ padding: "10px 16px", whiteSpace: "nowrap" })}>How to install</button>
+          ) : null}
+          <button onClick={onDismiss} style={Ghost({ padding: "10px 16px", whiteSpace: "nowrap" })}>Dismiss</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Pill({ children, color = C.violet, style = {} }: { children: React.ReactNode; color?: string; style?: React.CSSProperties }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 100, background: `${color}18`, border: `1px solid ${color}40`, fontSize: 12, color, fontWeight: 700, ...style }}>
@@ -1196,6 +1254,9 @@ export default function SabiTrack() {
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [isManualMode, setIsManualMode] = useState(false);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [isIosInstall, setIsIosInstall] = useState(false);
 
   useEffect(() => {
     Object.assign(C, bgMode === "black" ? darkPalette : lightPalette);
@@ -1217,6 +1278,38 @@ export default function SabiTrack() {
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isiOS = /iphone|ipad|ipod/.test(userAgent);
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches || (window.navigator as any).standalone === true;
+
+    if (isiOS && !isStandalone) {
+      setIsIosInstall(true);
+      setShowInstallPrompt(true);
+    }
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setDeferredInstallPrompt(event as BeforeInstallPromptEvent);
+      setShowInstallPrompt(true);
+    };
+
+    const handleAppInstalled = () => {
+      setShowInstallPrompt(false);
+      setDeferredInstallPrompt(null);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
+
   const sendTestNotification = () => {
     if (typeof window === "undefined" || !("Notification" in window)) return;
     if (Notification.permission !== "granted") return;
@@ -1224,6 +1317,24 @@ export default function SabiTrack() {
     new Notification("Sabi Track Reminder", {
       body: "You've got a daily target waiting. Open the app and crush it!",
     });
+  };
+
+  const handleInstallApp = async () => {
+    if (!deferredInstallPrompt) return;
+
+    deferredInstallPrompt.prompt();
+    const choice = await deferredInstallPrompt.userChoice;
+    if (choice.outcome === "accepted") {
+      setShowInstallPrompt(false);
+      setDeferredInstallPrompt(null);
+    } else {
+      setShowInstallPrompt(false);
+    }
+  };
+
+  const handleIosInstallHelp = () => {
+    if (typeof window === "undefined") return;
+    window.alert("In Safari, tap the Share button and choose Add to Home Screen to install SabiTrack.");
   };
 
   // Load user and their data on mount
@@ -1553,6 +1664,14 @@ export default function SabiTrack() {
 
   return (
     <div style={{ backgroundColor: C.bg, color: C.text, fontFamily: "'Nunito',sans-serif", minHeight: "100vh" }}>
+      <InstallPrompt
+        visible={showInstallPrompt && (deferredInstallPrompt !== null || isIosInstall)}
+        promptEvent={deferredInstallPrompt}
+        isIos={isIosInstall}
+        onInstall={handleInstallApp}
+        onHelp={handleIosInstallHelp}
+        onDismiss={() => setShowInstallPrompt(false)}
+      />
       {screen === "landing" && <LandingScreen onStart={() => setScreen("signin")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} onLogoClick={() => setScreen("landing")} />}
       {screen === "signup" && <SignupScreen user={user} setUser={setUser} onNext={() => setScreen("wizard")} onSignin={() => setScreen("signin")} isLoading={loading} onLogoClick={() => setScreen("landing")} />}
       {screen === "signin" && <SigninScreen onNext={(email, password) => handleSignin(email, password)} onSignup={() => { setUser({ name: "", email: "", whatsapp: "", password: "", username: "" }); setScreen("signup"); }} isLoading={loading} onLogoClick={() => setScreen("landing")} />}

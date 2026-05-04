@@ -5,7 +5,9 @@ import ServiceWorkerRegister from "./components/ServiceWorkerRegister";
 export const metadata: Metadata = {
   title: "SabiTrack - AI-Powered Accountability",
   description: "Turn your goals into daily actions with AI-generated roadmaps and WhatsApp accountability.",
-  themeColor: "#10B981",
+  viewport: {
+    themeColor: "#10B981",
+  },
   icons: [
     { rel: "icon", url: "/icon.svg" },
     { rel: "apple-touch-icon", url: "/icon.svg", sizes: "180x180" },
