@@ -97,10 +97,10 @@ function Pill({ children, color = C.violet, style = {} }: { children: React.Reac
   );
 }
 
-function LandingScreen({ onStart }: { onStart: () => void }) {
+function LandingScreen({ onStart, bgMode, toggleBgMode }: { onStart: () => void; bgMode: "white" | "black"; toggleBgMode: () => void }) {
   return (
     <div style={page}>
-      <TopNav right={<button onClick={onStart} style={Ghost({ padding: "9px 18px", fontSize: 13 })}>log in</button>} />
+      <TopNav right={<div style={{ display: "flex", alignItems: "center", gap: 8 }}><button onClick={toggleBgMode} style={Ghost({ padding: "10px 12px", fontSize: 12, color: C.text, borderColor: C.muted })}>{bgMode === "black" ? "☀️ Light" : "🌙 Dark"}</button><button onClick={onStart} style={Ghost({ padding: "9px 18px", fontSize: 13 })}>log in</button></div>} />
       <div className="fadeUp" style={{ paddingTop: 12 }}>
         <Pill color={C.lime} style={{ marginBottom: 22 }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.lime, display: "inline-block" }} />
@@ -150,33 +150,106 @@ function LandingScreen({ onStart }: { onStart: () => void }) {
   );
 }
 
-function SignupScreen({ user, setUser, onNext }: { user: { name: string; email: string; whatsapp: string }; setUser: (user: { name: string; email: string; whatsapp: string }) => void; onNext: () => void }) {
-  const ready = user.name.trim() && user.email.trim();
+function SignupScreen({ user, setUser, onNext, onSignin, isLoading }: { user: { name: string; email: string; whatsapp: string; password: string; username: string }; setUser: (user: any) => void; onNext: () => void; onSignin: () => void; isLoading: boolean }) {
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const ready = user.username.trim() && user.email.trim() && user.password.length >= 6 && user.name.trim();
   return (
     <div style={page}>
       <TopNav />
       <div className="fadeUp" style={{ paddingTop: 16 }}>
         <h2 style={H(28, { marginBottom: 6 })}>create your account</h2>
-        <p style={{ color: C.muted, fontSize: 15, marginBottom: 32, fontWeight: 500 }}>30 seconds. that's it.</p>
+        <p style={{ color: C.muted, fontSize: 15, marginBottom: 32, fontWeight: 500 }}>join sabi track & start crushing goals</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {[
             { label: "your name", key: "name", type: "text", ph: "Ada Okafor" },
+            { label: "username", key: "username", type: "text", ph: "adaokafor" },
             { label: "email", key: "email", type: "email", ph: "ada@example.com" },
             { label: "whatsapp number", key: "whatsapp", type: "tel", ph: "+234 801 234 5678" },
           ].map(f => (
             <div key={f.key}>
               <label style={{ display: "block", fontSize: 11, color: C.muted, marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}>{f.label}</label>
-              <input type={f.type} placeholder={f.ph} value={user[f.key as keyof typeof user]} onChange={e => setUser({ ...user, [f.key]: e.target.value })} style={Input()} />
+              <input type={f.type} placeholder={f.ph} value={user[f.key as keyof typeof user]} onChange={e => setUser({ ...user, [f.key]: e.target.value })} disabled={isLoading} style={Input()} />
             </div>
           ))}
+          <div>
+            <label style={{ display: "block", fontSize: 11, color: C.muted, marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}>password (min 6 chars)</label>
+            <div style={{ position: "relative" }}>
+              <input type={passwordVisible ? "text" : "password"} placeholder="create a strong password" value={user.password} onChange={e => setUser({ ...user, password: e.target.value })} disabled={isLoading} style={Input()} />
+              <button onClick={() => setPasswordVisible(!passwordVisible)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 16, color: C.muted }}>
+                {passwordVisible ? "👁️" : "👁️‍🗨️"}
+              </button>
+            </div>
+          </div>
           <div style={Card({ background: `${C.cyan}0D`, border: `1.5px solid ${C.cyan}30`, padding: "13px 15px", borderRadius: 16 })}>
             <p style={{ fontSize: 13, color: C.cyan, fontWeight: 600, lineHeight: 1.5 }}>
               📱 daily accountability drops straight to your whatsapp. no app download needed.
             </p>
           </div>
-          <button onClick={() => ready && onNext()} style={Lime({ width: "100%", padding: "17px", opacity: ready ? 1 : 0.3 })}>
-            let's go →
+          <button onClick={() => ready && onNext()} disabled={!ready || isLoading} style={Lime({ width: "100%", padding: "17px", opacity: ready && !isLoading ? 1 : 0.3 })}>
+            {isLoading ? "creating..." : "create account →"}
           </button>
+          <div style={{ textAlign: "center", marginTop: 8 }}>
+            <span style={{ fontSize: 14, color: C.muted }}>already have an account? </span>
+            <button onClick={onSignin} style={{ background: "none", border: "none", color: C.lime, fontSize: 14, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>
+              sign in
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SigninScreen({ onNext, onSignup, isLoading }: { onNext: (email: string, password: string) => Promise<void>; onSignup: () => void; isLoading: boolean }) {
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [error, setError] = useState("");
+  const ready = identifier.trim() && password.length >= 6;
+
+  const handleSignin = async () => {
+    setError("");
+    try {
+      await onNext(identifier, password);
+    } catch (err: any) {
+      setError(err.message || "Sign in failed. Please try again.");
+    }
+  };
+
+  return (
+    <div style={page}>
+      <TopNav />
+      <div className="fadeUp" style={{ paddingTop: 16 }}>
+        <h2 style={H(28, { marginBottom: 6 })}>welcome back</h2>
+        <p style={{ color: C.muted, fontSize: 15, marginBottom: 32, fontWeight: 500 }}>sign in to your account</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 11, color: C.muted, marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}>email, phone, or username</label>
+            <input type="text" placeholder="ada@example.com, +234..., or adaokafor" value={identifier} onChange={e => setIdentifier(e.target.value)} disabled={isLoading} style={Input()} />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 11, color: C.muted, marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}>password</label>
+            <div style={{ position: "relative" }}>
+              <input type={passwordVisible ? "text" : "password"} placeholder="your password" value={password} onChange={e => setPassword(e.target.value)} disabled={isLoading} style={Input()} />
+              <button onClick={() => setPasswordVisible(!passwordVisible)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 16, color: C.muted }}>
+                {passwordVisible ? "👁️" : "👁️‍🗨️"}
+              </button>
+            </div>
+          </div>
+          {error && (
+            <div style={{ padding: "10px 12px", background: `${C.pink}10`, border: `1px solid ${C.pink}30`, borderRadius: 8, fontSize: 13, color: C.pink }}>
+              {error}
+            </div>
+          )}
+          <button onClick={handleSignin} disabled={!ready || isLoading} style={Lime({ width: "100%", padding: "17px", opacity: ready && !isLoading ? 1 : 0.3 })}>
+            {isLoading ? "signing in..." : "sign in →"}
+          </button>
+          <div style={{ textAlign: "center", marginTop: 8 }}>
+            <span style={{ fontSize: 14, color: C.muted }}>don't have an account? </span>
+            <button onClick={onSignup} style={{ background: "none", border: "none", color: C.lime, fontSize: 14, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>
+              create one
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -988,7 +1061,7 @@ function DashboardScreen(props: DashboardScreenProps) {
 export default function SabiTrack() {
   const supabase = useMemo(() => createClient(), []);
   const [screen, setScreen] = useState("landing");
-  const [user, setUser] = useState({ name: "", email: "", whatsapp: "" });
+  const [user, setUser] = useState({ name: "", email: "", whatsapp: "", password: "", username: "" });
   const [goal, setGoal] = useState({ id: "", title: "", duration: "6 months", motivation: "", category: "" });
   const [allGoals, setAllGoals] = useState<any[]>([]);
   const [currentGoalId, setCurrentGoalId] = useState<string | null>(null);
@@ -1048,12 +1121,12 @@ export default function SabiTrack() {
           // Load user profile
           const { data: profile } = await supabase
             .from("users")
-            .select("name, email, whatsapp")
+            .select("name, email, whatsapp, username")
             .eq("id", session.user.id)
             .single();
           
           if (profile) {
-            setUser(profile);
+            setUser({ ...profile, password: "", username: profile.username || "" });
           }
           
           // Load all goals
@@ -1137,11 +1210,35 @@ export default function SabiTrack() {
     }
   };
 
-  const saveUserSignup = async (userData: typeof user) => {
+  const handleSignin = async (identifier: string, password: string) => {
+    setLoading(true);
     try {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: identifier,
+        password: password,
+      });
+      
+      if (authError) throw authError;
+      
+      if (authData.user) {
+        setUserId(authData.user.id);
+        setScreen("dashboard");
+      }
+    } catch (error: any) {
+      console.error("Sign in error:", error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveUserSignup = async (userData: typeof user) => {
+    setLoading(true);
+    try {
+      // Create auth account with email and password
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email,
-        password: userData.email + Math.random(),
+        password: userData.password,
       });
       
       if (authError) throw authError;
@@ -1149,16 +1246,22 @@ export default function SabiTrack() {
       if (authData.user) {
         setUserId(authData.user.id);
         
-        // Save user profile
+        // Save user profile with username
         await supabase.from("users").insert({
           id: authData.user.id,
           name: userData.name,
           email: userData.email,
+          username: userData.username,
           whatsapp: userData.whatsapp,
         });
+
+        setScreen("wizard");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving user:", error);
+      throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1315,8 +1418,9 @@ export default function SabiTrack() {
 
   return (
     <div style={{ backgroundColor: C.bg, color: C.text, fontFamily: "'Nunito',sans-serif", minHeight: "100vh" }}>
-      {screen === "landing" && <LandingScreen onStart={() => setScreen("signup")} />}
-      {screen === "signup" && <SignupScreen user={user} setUser={(u) => { setUser(u); saveUserSignup(u); }} onNext={() => setScreen("wizard")} />}
+      {screen === "landing" && <LandingScreen onStart={() => setScreen("signin")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} />}
+      {screen === "signup" && <SignupScreen user={user} setUser={setUser} onNext={() => setScreen("wizard")} onSignin={() => setScreen("signin")} isLoading={loading} />}
+      {screen === "signin" && <SigninScreen onNext={(email, password) => handleSignin(email, password)} onSignup={() => { setUser({ name: "", email: "", whatsapp: "", password: "", username: "" }); setScreen("signup"); }} isLoading={loading} />}
       {screen === "wizard" && <WizardScreen goal={goal} setGoal={setGoal} onGenerate={generateRoadmap} isEditing={!!goal.id} />}
       {screen === "roadmap" && <RoadmapScreen roadmap={roadmap} setRoadmap={setRoadmap} loading={loading} goal={goal} onApprove={() => setScreen("dashboard")} onRegenerate={generateRoadmap} />}
       {screen === "settings" && <SettingsScreen user={user} onBack={() => setScreen("dashboard")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} notificationsEnabled={notificationsEnabled} sendTestNotification={sendTestNotification} />}
