@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 const lightPalette = {
@@ -53,6 +53,7 @@ type DashboardScreenProps = {
   bgMode: "white" | "black";
   toggleBgMode: () => void;
   dbConnected: boolean | null;
+  analytics: { streak: number; currentWeek: number; weeklyTrend: number[] };
   onSettings: () => void;
 };
 
@@ -412,8 +413,8 @@ function WizardScreen({ goal, setGoal, onGenerate, isEditing = false, onLogoClic
 const TIERS = [
   { key: "year_target", label: "year goal", emoji: "🌟", color: C.amber },
   { key: "quarter_target", label: "3-month mark", emoji: "🎯", color: C.violet },
-  { key: "month_target", label: "this month", emoji: "📅", color: C.cyan },
-  { key: "week_target", label: "this week", emoji: "⚡", color: C.lime },
+  { key: "month_targets", label: "this month", emoji: "📅", color: C.cyan },
+  { key: "week_targets", label: "this week", emoji: "⚡", color: C.lime },
 ];
 
 const LOADING_MSGS = [
@@ -427,30 +428,64 @@ const LOADING_MSGS = [
 function ManualRoadmapForm({ goal, onSave, isLoading, onLogoClick }: { goal: { title: string; duration: string; motivation: string; category: string }; onSave: (roadmap: any) => Promise<void>; isLoading: boolean; onLogoClick: () => void }) {
   const [yearTarget, setYearTarget] = useState("");
   const [quarterTarget, setQuarterTarget] = useState("");
-  const [monthTarget, setMonthTarget] = useState("");
-  const [weekTarget, setWeekTarget] = useState("");
-  const [dailyTasks, setDailyTasks] = useState(["", "", ""]);
-  const [newTask, setNewTask] = useState("");
+  const [monthTargets, setMonthTargets] = useState([""]);
+  const [weekTargets, setWeekTargets] = useState([""]);
+  const [dailyTargets, setDailyTargets] = useState(["", "", ""]);
+  const [newMonthTarget, setNewMonthTarget] = useState("");
+  const [newWeekTarget, setNewWeekTarget] = useState("");
+  const [newDailyTarget, setNewDailyTarget] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const addTask = () => {
-    if (!newTask.trim()) return;
-    setDailyTasks([...dailyTasks, newTask.trim()]);
-    setNewTask("");
+  const addMonthTarget = () => {
+    if (!newMonthTarget.trim()) return;
+    setMonthTargets([...monthTargets, newMonthTarget.trim()]);
+    setNewMonthTarget("");
   };
 
-  const removeTask = (i: number) => {
-    setDailyTasks(dailyTasks.filter((_, idx) => idx !== i));
+  const removeMonthTarget = (i: number) => {
+    setMonthTargets(monthTargets.filter((_, idx) => idx !== i));
   };
 
-  const updateTask = (i: number, val: string) => {
-    const t = [...dailyTasks];
+  const updateMonthTarget = (i: number, val: string) => {
+    const t = [...monthTargets];
     t[i] = val;
-    setDailyTasks(t);
+    setMonthTargets(t);
+  };
+
+  const addWeekTarget = () => {
+    if (!newWeekTarget.trim()) return;
+    setWeekTargets([...weekTargets, newWeekTarget.trim()]);
+    setNewWeekTarget("");
+  };
+
+  const removeWeekTarget = (i: number) => {
+    setWeekTargets(weekTargets.filter((_, idx) => idx !== i));
+  };
+
+  const updateWeekTarget = (i: number, val: string) => {
+    const t = [...weekTargets];
+    t[i] = val;
+    setWeekTargets(t);
+  };
+
+  const addDailyTarget = () => {
+    if (!newDailyTarget.trim()) return;
+    setDailyTargets([...dailyTargets, newDailyTarget.trim()]);
+    setNewDailyTarget("");
+  };
+
+  const removeDailyTarget = (i: number) => {
+    setDailyTargets(dailyTargets.filter((_, idx) => idx !== i));
+  };
+
+  const updateDailyTarget = (i: number, val: string) => {
+    const t = [...dailyTargets];
+    t[i] = val;
+    setDailyTargets(t);
   };
 
   const handleSave = async () => {
-    if (!yearTarget.trim() || !quarterTarget.trim() || !monthTarget.trim() || !weekTarget.trim() || dailyTasks.some(t => !t.trim())) {
+    if (!yearTarget.trim() || !quarterTarget.trim() || monthTargets.some(t => !t.trim()) || weekTargets.some(t => !t.trim()) || dailyTargets.some(t => !t.trim())) {
       alert("Please fill in all fields");
       return;
     }
@@ -460,9 +495,9 @@ function ManualRoadmapForm({ goal, onSave, isLoading, onLogoClick }: { goal: { t
       await onSave({
         year_target: yearTarget,
         quarter_target: quarterTarget,
-        month_target: monthTarget,
-        week_target: weekTarget,
-        daily_tasks: dailyTasks,
+        month_targets: monthTargets,
+        week_targets: weekTargets,
+        daily_targets: dailyTargets,
       });
     } finally {
       setSaving(false);
@@ -488,8 +523,6 @@ function ManualRoadmapForm({ goal, onSave, isLoading, onLogoClick }: { goal: { t
         {[
           { key: "year", emoji: "📅", label: "year target", value: yearTarget, onChange: setYearTarget, sub: "your ultimate goal by end of year" },
           { key: "quarter", emoji: "📊", label: "quarter target", value: quarterTarget, onChange: setQuarterTarget, sub: "what you'll achieve in 3 months" },
-          { key: "month", emoji: "🎯", label: "month target", value: monthTarget, onChange: setMonthTarget, sub: "your focus for this month" },
-          { key: "week", emoji: "⚡", label: "week target", value: weekTarget, onChange: setWeekTarget, sub: "this week's mission" },
         ].map((t) => (
           <div key={t.key} style={Card({ borderLeft: `3px solid ${C.lime}`, paddingLeft: 18 })}>
             <div style={{ fontSize: 10, color: C.lime, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6 }}>{t.emoji} {t.label}</div>
@@ -504,36 +537,106 @@ function ManualRoadmapForm({ goal, onSave, isLoading, onLogoClick }: { goal: { t
           </div>
         ))}
 
-        <div style={Card({ borderLeft: `3px solid ${C.pink}`, paddingLeft: 18 })}>
-          <div style={{ fontSize: 10, color: C.pink, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>🔥 daily moves ({dailyTasks.length})</div>
+        <div style={Card({ borderLeft: `3px solid ${C.cyan}`, paddingLeft: 18 })}>
+          <div style={{ fontSize: 10, color: C.cyan, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>🎯 monthly targets ({monthTargets.length})</div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {dailyTasks.map((task, i) => (
+            {monthTargets.map((target, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 24, height: 24, borderRadius: 8, background: `${C.pink}18`, border: `1px solid ${C.pink}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: C.pink, flexShrink: 0 }}>
+                <div style={{ width: 24, height: 24, borderRadius: 8, background: `${C.cyan}18`, border: `1px solid ${C.cyan}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: C.cyan, flexShrink: 0 }}>
                   {i + 1}
                 </div>
                 <input
-                  value={task}
-                  onChange={e => updateTask(i, e.target.value)}
-                  placeholder="write your daily move..."
+                  value={target}
+                  onChange={e => updateMonthTarget(i, e.target.value)}
+                  placeholder="write your monthly target..."
                   style={{ flex: 1, background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, padding: "5px 0", outline: "none" }}
                 />
-                <button onClick={() => removeTask(i)} style={{ width: 26, height: 26, borderRadius: "50%", background: C.surface, border: `1px solid ${C.border}`, color: C.muted, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 1, fontFamily: "inherit" }}>×</button>
+                <button onClick={() => removeMonthTarget(i)} style={{ width: 26, height: 26, borderRadius: "50%", background: C.surface, border: `1px solid ${C.border}`, color: C.muted, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 1, fontFamily: "inherit" }}>×</button>
               </div>
             ))}
 
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
               <div style={{ width: 24, height: 24, borderRadius: 8, background: `${C.lime}18`, border: `1px dashed ${C.lime}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: C.lime, flexShrink: 0 }}>+</div>
               <input
-                value={newTask}
-                onChange={e => setNewTask(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && addTask()}
-                placeholder="add more daily moves... (press Enter)"
+                value={newMonthTarget}
+                onChange={e => setNewMonthTarget(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && addMonthTarget()}
+                placeholder="add more monthly targets... (press Enter)"
                 style={{ flex: 1, background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, padding: "5px 0", outline: "none" }}
               />
-              {newTask.trim() && (
-                <button onClick={addTask} style={{ padding: "5px 12px", borderRadius: 100, background: `${C.lime}18`, border: `1px solid ${C.lime}40`, color: C.lime, fontSize: 12, fontFamily: "inherit", fontWeight: 800, cursor: "pointer" }}>add</button>
+              {newMonthTarget.trim() && (
+                <button onClick={addMonthTarget} style={{ padding: "5px 12px", borderRadius: 100, background: `${C.lime}18`, border: `1px solid ${C.lime}40`, color: C.lime, fontSize: 12, fontFamily: "inherit", fontWeight: 800, cursor: "pointer" }}>add</button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div style={Card({ borderLeft: `3px solid ${C.violet}`, paddingLeft: 18 })}>
+          <div style={{ fontSize: 10, color: C.violet, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>⚡ weekly targets ({weekTargets.length})</div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {weekTargets.map((target, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 24, height: 24, borderRadius: 8, background: `${C.violet}18`, border: `1px solid ${C.violet}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: C.violet, flexShrink: 0 }}>
+                  {i + 1}
+                </div>
+                <input
+                  value={target}
+                  onChange={e => updateWeekTarget(i, e.target.value)}
+                  placeholder="write your weekly target..."
+                  style={{ flex: 1, background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, padding: "5px 0", outline: "none" }}
+                />
+                <button onClick={() => removeWeekTarget(i)} style={{ width: 26, height: 26, borderRadius: "50%", background: C.surface, border: `1px solid ${C.border}`, color: C.muted, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 1, fontFamily: "inherit" }}>×</button>
+              </div>
+            ))}
+
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+              <div style={{ width: 24, height: 24, borderRadius: 8, background: `${C.lime}18`, border: `1px dashed ${C.lime}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: C.lime, flexShrink: 0 }}>+</div>
+              <input
+                value={newWeekTarget}
+                onChange={e => setNewWeekTarget(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && addWeekTarget()}
+                placeholder="add more weekly targets... (press Enter)"
+                style={{ flex: 1, background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, padding: "5px 0", outline: "none" }}
+              />
+              {newWeekTarget.trim() && (
+                <button onClick={addWeekTarget} style={{ padding: "5px 12px", borderRadius: 100, background: `${C.lime}18`, border: `1px solid ${C.lime}40`, color: C.lime, fontSize: 12, fontFamily: "inherit", fontWeight: 800, cursor: "pointer" }}>add</button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div style={Card({ borderLeft: `3px solid ${C.pink}`, paddingLeft: 18 })}>
+          <div style={{ fontSize: 10, color: C.pink, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>🔥 daily targets ({dailyTargets.length})</div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {dailyTargets.map((target, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 24, height: 24, borderRadius: 8, background: `${C.pink}18`, border: `1px solid ${C.pink}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: C.pink, flexShrink: 0 }}>
+                  {i + 1}
+                </div>
+                <input
+                  value={target}
+                  onChange={e => updateDailyTarget(i, e.target.value)}
+                  placeholder="write your daily target..."
+                  style={{ flex: 1, background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, padding: "5px 0", outline: "none" }}
+                />
+                <button onClick={() => removeDailyTarget(i)} style={{ width: 26, height: 26, borderRadius: "50%", background: C.surface, border: `1px solid ${C.border}`, color: C.muted, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 1, fontFamily: "inherit" }}>×</button>
+              </div>
+            ))}
+
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+              <div style={{ width: 24, height: 24, borderRadius: 8, background: `${C.lime}18`, border: `1px dashed ${C.lime}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: C.lime, flexShrink: 0 }}>+</div>
+              <input
+                value={newDailyTarget}
+                onChange={e => setNewDailyTarget(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && addDailyTarget()}
+                placeholder="add more daily targets... (press Enter)"
+                style={{ flex: 1, background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, padding: "5px 0", outline: "none" }}
+              />
+              {newDailyTarget.trim() && (
+                <button onClick={addDailyTarget} style={{ padding: "5px 12px", borderRadius: 100, background: `${C.lime}18`, border: `1px solid ${C.lime}40`, color: C.lime, fontSize: 12, fontFamily: "inherit", fontWeight: 800, cursor: "pointer" }}>add</button>
               )}
             </div>
           </div>
@@ -549,7 +652,9 @@ function ManualRoadmapForm({ goal, onSave, isLoading, onLogoClick }: { goal: { t
 
 function RoadmapScreen({ roadmap, setRoadmap, loading, goal, onApprove, onRegenerate, onLogoClick }: { roadmap: Record<string, any> | null; setRoadmap: React.Dispatch<React.SetStateAction<Record<string, any> | null>>; loading: boolean; goal: { title: string; duration: string; motivation: string; category: string }; onApprove: () => void; onRegenerate: () => void; onLogoClick: () => void }) {
   const [msgIdx, setMsgIdx] = useState(0);
-  const [newTask, setNewTask] = useState("");
+  const [newMonthTarget, setNewMonthTarget] = useState("");
+  const [newWeekTarget, setNewWeekTarget] = useState("");
+  const [newDailyTarget, setNewDailyTarget] = useState("");
 
   useEffect(() => {
     if (!loading) return;
@@ -558,23 +663,37 @@ function RoadmapScreen({ roadmap, setRoadmap, loading, goal, onApprove, onRegene
   }, [loading]);
 
   const updateTier = (key: string, val: string) => setRoadmap(r => r ? ({ ...r, [key]: val }) : r);
-  const updateTask = (i: number, val: string) => setRoadmap(r => {
+  const updateArrayItem = (key: string, i: number, val: string) => setRoadmap(r => {
     if (!r) return r;
-    const t = [...r.daily_tasks];
-    t[i] = val;
-    return { ...r, daily_tasks: t };
+    const arr = [...r[key]];
+    arr[i] = val;
+    return { ...r, [key]: arr };
   });
-  const removeTask = (i: number) => setRoadmap(r => {
+  const removeArrayItem = (key: string, i: number) => setRoadmap(r => {
     if (!r) return r;
-    return { ...r, daily_tasks: r.daily_tasks.filter((_: unknown, idx: number) => idx !== i) };
+    return { ...r, [key]: r[key].filter((_: unknown, idx: number) => idx !== i) };
   });
-  const addTask = () => {
-    if (!newTask.trim()) return;
+  const addArrayItem = (key: string, val: string) => {
+    if (!val.trim()) return;
     setRoadmap(r => {
       if (!r) return r;
-      return { ...r, daily_tasks: [...r.daily_tasks, newTask.trim()] };
+      return { ...r, [key]: [...r[key], val.trim()] };
     });
-    setNewTask("");
+  };
+
+  const addMonthTarget = () => {
+    addArrayItem("month_targets", newMonthTarget);
+    setNewMonthTarget("");
+  };
+
+  const addWeekTarget = () => {
+    addArrayItem("week_targets", newWeekTarget);
+    setNewWeekTarget("");
+  };
+
+  const addDailyTarget = () => {
+    addArrayItem("daily_targets", newDailyTarget);
+    setNewDailyTarget("");
   };
 
   return (
@@ -612,51 +731,127 @@ function RoadmapScreen({ roadmap, setRoadmap, loading, goal, onApprove, onRegene
             <span style={{ fontSize: 13, color: C.lime, fontWeight: 700 }}>everything is editable — make it yours</span>
           </div>
 
-          {TIERS.map((t, i) => (
-            <div key={t.key} className={`fadeUp s${i + 1}`} style={Card({ borderLeft: `3px solid ${t.color}`, paddingLeft: 18 })}>
-              <div style={{ fontSize: 10, color: t.color, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>{t.emoji} {t.label}</div>
-              <textarea
-                value={roadmap[t.key]}
-                onChange={e => updateTier(t.key, e.target.value)}
-                rows={2}
-                style={{ width: "100%", background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, lineHeight: 1.65, outline: "none", resize: "none", padding: "4px 0" }}
-              />
-            </div>
-          ))}
+          <div className={`fadeUp s1`} style={Card({ borderLeft: `3px solid ${C.amber}`, paddingLeft: 18 })}>
+            <div style={{ fontSize: 10, color: C.amber, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>🌟 year goal</div>
+            <textarea
+              value={roadmap.year_target}
+              onChange={e => updateTier("year_target", e.target.value)}
+              rows={2}
+              style={{ width: "100%", background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, lineHeight: 1.65, outline: "none", resize: "none", padding: "4px 0" }}
+            />
+          </div>
 
-          <div className="fadeUp s5" style={Card({ borderLeft: `3px solid ${C.pink}`, paddingLeft: 18 })}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <div style={{ fontSize: 10, color: C.pink, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5 }}>🔥 daily moves</div>
-              <Pill color={C.pink}>{roadmap.daily_tasks.length} tasks</Pill>
-            </div>
+          <div className={`fadeUp s2`} style={Card({ borderLeft: `3px solid ${C.violet}`, paddingLeft: 18 })}>
+            <div style={{ fontSize: 10, color: C.violet, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>🎯 3-month mark</div>
+            <textarea
+              value={roadmap.quarter_target}
+              onChange={e => updateTier("quarter_target", e.target.value)}
+              rows={2}
+              style={{ width: "100%", background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, lineHeight: 1.65, outline: "none", resize: "none", padding: "4px 0" }}
+            />
+          </div>
 
+          <div className={`fadeUp s3`} style={Card({ borderLeft: `3px solid ${C.cyan}`, paddingLeft: 18 })}>
+            <div style={{ fontSize: 10, color: C.cyan, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>📅 this month ({roadmap.month_targets?.length || 0})</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {roadmap.daily_tasks.map((task: string, i: number) => (
+              {roadmap.month_targets?.map((target: string, i: number) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 24, height: 24, borderRadius: 8, background: `${C.pink}18`, border: `1px solid ${C.pink}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: C.pink, flexShrink: 0 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 8, background: `${C.cyan}18`, border: `1px solid ${C.cyan}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: C.cyan, flexShrink: 0 }}>
                     {i + 1}
                   </div>
                   <input
-                    value={task}
-                    onChange={e => updateTask(i, e.target.value)}
-                    placeholder="write your move..."
+                    value={target}
+                    onChange={e => updateArrayItem("month_targets", i, e.target.value)}
+                    placeholder="write your monthly target..."
                     style={{ flex: 1, background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, padding: "5px 0", outline: "none" }}
                   />
-                  <button onClick={() => removeTask(i)} style={{ width: 26, height: 26, borderRadius: "50%", background: C.surface, border: `1px solid ${C.border}`, color: C.muted, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 1, fontFamily: "inherit" }}>×</button>
+                  <button onClick={() => removeArrayItem("month_targets", i)} style={{ width: 26, height: 26, borderRadius: "50%", background: C.surface, border: `1px solid ${C.border}`, color: C.muted, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 1, fontFamily: "inherit" }}>×</button>
                 </div>
               ))}
 
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
                 <div style={{ width: 24, height: 24, borderRadius: 8, background: `${C.lime}18`, border: `1px dashed ${C.lime}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: C.lime, flexShrink: 0 }}>+</div>
                 <input
-                  value={newTask}
-                  onChange={e => setNewTask(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && addTask()}
-                  placeholder="add your own move... (press Enter)"
+                  value={newMonthTarget}
+                  onChange={e => setNewMonthTarget(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && addMonthTarget()}
+                  placeholder="add monthly target... (press Enter)"
                   style={{ flex: 1, background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, padding: "5px 0", outline: "none" }}
                 />
-                {newTask.trim() && (
-                  <button onClick={addTask} style={{ padding: "5px 12px", borderRadius: 100, background: `${C.lime}18`, border: `1px solid ${C.lime}40`, color: C.lime, fontSize: 12, fontFamily: "inherit", fontWeight: 800, cursor: "pointer" }}>add</button>
+                {newMonthTarget.trim() && (
+                  <button onClick={addMonthTarget} style={{ padding: "5px 12px", borderRadius: 100, background: `${C.lime}18`, border: `1px solid ${C.lime}40`, color: C.lime, fontSize: 12, fontFamily: "inherit", fontWeight: 800, cursor: "pointer" }}>add</button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className={`fadeUp s4`} style={Card({ borderLeft: `3px solid ${C.lime}`, paddingLeft: 18 })}>
+            <div style={{ fontSize: 10, color: C.lime, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>⚡ this week ({roadmap.week_targets?.length || 0})</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {roadmap.week_targets?.map((target: string, i: number) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 8, background: `${C.lime}18`, border: `1px solid ${C.lime}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: C.lime, flexShrink: 0 }}>
+                    {i + 1}
+                  </div>
+                  <input
+                    value={target}
+                    onChange={e => updateArrayItem("week_targets", i, e.target.value)}
+                    placeholder="write your weekly target..."
+                    style={{ flex: 1, background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, padding: "5px 0", outline: "none" }}
+                  />
+                  <button onClick={() => removeArrayItem("week_targets", i)} style={{ width: 26, height: 26, borderRadius: "50%", background: C.surface, border: `1px solid ${C.border}`, color: C.muted, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 1, fontFamily: "inherit" }}>×</button>
+                </div>
+              ))}
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+                <div style={{ width: 24, height: 24, borderRadius: 8, background: `${C.lime}18`, border: `1px dashed ${C.lime}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: C.lime, flexShrink: 0 }}>+</div>
+                <input
+                  value={newWeekTarget}
+                  onChange={e => setNewWeekTarget(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && addWeekTarget()}
+                  placeholder="add weekly target... (press Enter)"
+                  style={{ flex: 1, background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, padding: "5px 0", outline: "none" }}
+                />
+                {newWeekTarget.trim() && (
+                  <button onClick={addWeekTarget} style={{ padding: "5px 12px", borderRadius: 100, background: `${C.lime}18`, border: `1px solid ${C.lime}40`, color: C.lime, fontSize: 12, fontFamily: "inherit", fontWeight: 800, cursor: "pointer" }}>add</button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="fadeUp s5" style={Card({ borderLeft: `3px solid ${C.pink}`, paddingLeft: 18 })}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div style={{ fontSize: 10, color: C.pink, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5 }}>🔥 daily targets</div>
+              <Pill color={C.pink}>{roadmap.daily_targets?.length || 0} tasks</Pill>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {roadmap.daily_targets?.map((task: string, i: number) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 8, background: `${C.pink}18`, border: `1px solid ${C.pink}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: C.pink, flexShrink: 0 }}>
+                    {i + 1}
+                  </div>
+                  <input
+                    value={task}
+                    onChange={e => updateArrayItem("daily_targets", i, e.target.value)}
+                    placeholder="write your target..."
+                    style={{ flex: 1, background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, padding: "5px 0", outline: "none" }}
+                  />
+                  <button onClick={() => removeArrayItem("daily_targets", i)} style={{ width: 26, height: 26, borderRadius: "50%", background: C.surface, border: `1px solid ${C.border}`, color: C.muted, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 1, fontFamily: "inherit" }}>×</button>
+                </div>
+              ))}
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+                <div style={{ width: 24, height: 24, borderRadius: 8, background: `${C.lime}18`, border: `1px dashed ${C.lime}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: C.lime, flexShrink: 0 }}>+</div>
+                <input
+                  value={newDailyTarget}
+                  onChange={e => setNewDailyTarget(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && addDailyTarget()}
+                  placeholder="add daily target... (press Enter)"
+                  style={{ flex: 1, background: "transparent", border: "none", borderBottom: `1.5px dashed ${C.dim}`, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 600, padding: "5px 0", outline: "none" }}
+                />
+                {newDailyTarget.trim() && (
+                  <button onClick={addDailyTarget} style={{ padding: "5px 12px", borderRadius: 100, background: `${C.lime}18`, border: `1px solid ${C.lime}40`, color: C.lime, fontSize: 12, fontFamily: "inherit", fontWeight: 800, cursor: "pointer" }}>add</button>
                 )}
               </div>
             </div>
@@ -803,15 +998,14 @@ function SettingsScreen({ user, onBack, bgMode, toggleBgMode, notificationsEnabl
 }
 
 function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void }) {
-  const { user, goal, allGoals, currentGoalId, switchGoal, roadmap, tasks, setTasks, onCreateGoal, onEditGoal, bgMode, toggleBgMode, dbConnected, onSettings, onLogoClick } = props;
+  const { user, goal, allGoals, currentGoalId, switchGoal, roadmap, tasks, setTasks, onCreateGoal, onEditGoal, bgMode, toggleBgMode, dbConnected, analytics, onSettings, onLogoClick } = props;
   const [activeTab, setActiveTab] = useState("today");
   const [showGoalMenu, setShowGoalMenu] = useState(false);
   const done = tasks.filter(Boolean).length;
   const total = tasks.length;
   const xp = total ? Math.round((done / total) * 100) : 0;
   const firstName = user.name?.split(" ")[0] || "there";
-  const dailyTasks: string[] = roadmap?.daily_tasks || ["plan your week", "take one action", "log your progress"];
-  const barH = [72, 55, 88, 40, 65, 20, 0];
+  const dailyTasks: string[] = roadmap?.daily_targets || ["plan your week", "take one action", "log your progress"];
   const days = ["M", "T", "W", "T", "F", "S", "S"];
 
   // Categorize goals
@@ -1102,13 +1296,16 @@ function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void
           </div>
 
           <div className="fadeUp s2" style={Card({ borderLeft: `3px solid ${C.violet}`, paddingLeft: 16, padding: "14px 14px 14px 16px" })}>
-            <div style={{ fontSize: 10, color: C.violet, textTransform: "uppercase", letterSpacing: 2, fontWeight: 800, marginBottom: 6 }}>⚡ this week</div>
-            <p style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.6, margin: 0, color: C.muted }}>{roadmap?.week_target || "Build foundational habits and hit your first milestone."}</p>
+            <div style={{ fontSize: 10, color: C.violet, textTransform: "uppercase", letterSpacing: 2, fontWeight: 800, marginBottom: 6 }}>⚡ this week ({roadmap?.week_targets?.length || 0} targets)</div>
+            {roadmap?.week_targets?.slice(0, 2).map((target: string, i: number) => (
+              <p key={i} style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.6, margin: 0, color: C.muted, marginBottom: i === 0 ? 8 : 0 }}>{target}</p>
+            ))}
+            {(roadmap?.week_targets?.length || 0) > 2 && <p style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>...and {(roadmap?.week_targets?.length || 0) - 2} more</p>}
           </div>
 
           <div className="fadeUp s3" style={Card()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div style={{ fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 800 }}>🔥 daily moves</div>
+              <div style={{ fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 800 }}>🔥 daily targets</div>
               {done === total && total > 0 && <Pill color={C.green}>all done 🎉</Pill>}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1128,14 +1325,14 @@ function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void
             {done > 0 && (
               <div style={{ marginTop: 12, padding: "10px 13px", background: `${C.green}0F`, border: `1px solid ${C.green}25`, borderRadius: 12 }}>
                 <p style={{ margin: 0, fontSize: 13, color: C.green, fontWeight: 700 }}>
-                  {done === total ? "🎉 all tasks done! excellent work." : `✅ ${done} move${done > 1 ? "s" : ""} done. keep going!`}
+                  {done === total ? "🎉 all targets done! excellent work." : `✅ ${done} target${done > 1 ? "s" : ""} done. keep going!`}
                 </p>
               </div>
             )}
           </div>
 
           <div className="fadeUp s4" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            {[{ icon: "🔥", label: "streak", val: "1 day", color: C.amber }, { icon: "📅", label: "week", val: "week 1", color: C.cyan }].map(s => (
+            {[{ icon: "🔥", label: "streak", val: `${analytics.streak} day${analytics.streak !== 1 ? 's' : ''}`, color: C.amber }, { icon: "📅", label: "week", val: `week ${analytics.currentWeek}`, color: C.cyan }].map(s => (
               <div key={s.label} style={Card({ textAlign: "center", padding: "16px 12px" })}>
                 <div style={{ fontSize: 24, marginBottom: 4 }}>{s.icon}</div>
                 <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 18, fontWeight: 800, color: s.color, marginBottom: 2 }}>{s.val}</div>
@@ -1148,13 +1345,13 @@ function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void
         {activeTab === "progress" && (<>
           <div className="fadeUp">
             <h2 style={H(22, { marginBottom: 4 })}>your progress</h2>
-            <p style={{ color: C.muted, fontSize: 14, fontWeight: 600 }}>week 1 · {goal.duration} goal</p>
+            <p style={{ color: C.muted, fontSize: 14, fontWeight: 600 }}>week {analytics.currentWeek} · {goal.duration} goal</p>
           </div>
 
           <div className="fadeUp s1" style={Card()}>
             <div style={{ fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 2, fontWeight: 800, marginBottom: 16 }}>📊 weekly trend</div>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 80 }}>
-              {barH.map((h, i) => (
+              {analytics.weeklyTrend.map((h, i) => (
                 <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, height: "100%" }}>
                   <div style={{ flex: 1, display: "flex", alignItems: "flex-end", width: "100%" }}>
                     <div style={{ width: "100%", height: `${Math.max(h, 0)}%`, minHeight: h > 0 ? 4 : 0, background: i === 0 ? `linear-gradient(180deg,${C.violet},${C.lime})` : h > 60 ? `${C.lime}40` : h > 0 ? C.border : "transparent", borderRadius: "5px 5px 0 0" }} />
@@ -1165,12 +1362,31 @@ function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void
             </div>
           </div>
 
-          {TIERS.map((t, i) => (
-            <div key={t.key} className={`fadeUp s${i + 2}`} style={Card({ borderLeft: `3px solid ${t.color}`, paddingLeft: 16, padding: "14px 14px 14px 16px" })}>
-              <div style={{ fontSize: 10, color: t.color, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>{t.emoji} {t.label}</div>
-              <p style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.6, margin: 0, color: C.muted }}>{roadmap?.[t.key] || "—"}</p>
-            </div>
-          ))}
+          <div className={`fadeUp s2`} style={Card({ borderLeft: `3px solid ${C.amber}`, paddingLeft: 16, padding: "14px 14px 14px 16px" })}>
+            <div style={{ fontSize: 10, color: C.amber, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>🌟 year goal</div>
+            <p style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.6, margin: 0, color: C.muted }}>{roadmap?.year_target || "—"}</p>
+          </div>
+
+          <div className={`fadeUp s3`} style={Card({ borderLeft: `3px solid ${C.violet}`, paddingLeft: 16, padding: "14px 14px 14px 16px" })}>
+            <div style={{ fontSize: 10, color: C.violet, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>🎯 3-month mark</div>
+            <p style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.6, margin: 0, color: C.muted }}>{roadmap?.quarter_target || "—"}</p>
+          </div>
+
+          <div className={`fadeUp s4`} style={Card({ borderLeft: `3px solid ${C.cyan}`, paddingLeft: 16, padding: "14px 14px 14px 16px" })}>
+            <div style={{ fontSize: 10, color: C.cyan, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>📅 this month ({roadmap?.month_targets?.length || 0} targets)</div>
+            {roadmap?.month_targets?.slice(0, 2).map((target: string, i: number) => (
+              <p key={i} style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.6, margin: 0, color: C.muted, marginBottom: i === 0 ? 8 : 0 }}>{target}</p>
+            ))}
+            {(roadmap?.month_targets?.length || 0) > 2 && <p style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>...and {(roadmap?.month_targets?.length || 0) - 2} more</p>}
+          </div>
+
+          <div className={`fadeUp s5`} style={Card({ borderLeft: `3px solid ${C.lime}`, paddingLeft: 16, padding: "14px 14px 14px 16px" })}>
+            <div style={{ fontSize: 10, color: C.lime, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>⚡ this week ({roadmap?.week_targets?.length || 0} targets)</div>
+            {roadmap?.week_targets?.slice(0, 2).map((target: string, i: number) => (
+              <p key={i} style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.6, margin: 0, color: C.muted, marginBottom: i === 0 ? 8 : 0 }}>{target}</p>
+            ))}
+            {(roadmap?.week_targets?.length || 0) > 2 && <p style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>...and {(roadmap?.week_targets?.length || 0) - 2} more</p>}
+          </div>
         </>)}
 
         {activeTab === "whatsapp" && (<>
@@ -1192,8 +1408,8 @@ function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void
               <div style={{ color: "#4B6A7A", fontSize: 11, marginBottom: 6 }}>7:00 AM · daily message</div>
               <div>Good morning {firstName} 👋</div>
               <div><span style={{ color: "#4B6A7A" }}>Goal:</span> {goal.title?.substring(0, 38)}...</div>
-              <div><span style={{ color: "#4B6A7A" }}>Week:</span> {roadmap?.week_target?.substring(0, 38)}...</div>
-              <div style={{ marginTop: 5 }}>Today's Moves:</div>
+              <div><span style={{ color: "#4B6A7A" }}>Week:</span> {roadmap?.week_targets?.[0]?.substring(0, 38)}...</div>
+              <div style={{ marginTop: 5 }}>Today's Targets:</div>
               {dailyTasks.slice(0, 3).map((t, i) => <div key={i}>  {i + 1}. {t?.substring(0, 40)}</div>)}
               <div style={{ marginTop: 5, color: "#4B6A7A" }}>Reply: DONE / MOVE / SKIP / HELP</div>
               <div style={{ color: "#22C55E" }}>make today count ✅</div>
@@ -1243,7 +1459,7 @@ export default function SabiTrack() {
   const supabase = useMemo(() => createClient(), []);
   const [screen, setScreen] = useState("landing");
   const [user, setUser] = useState({ name: "", email: "", whatsapp: "", password: "", username: "" });
-  const [goal, setGoal] = useState({ id: "", title: "", duration: "6 months", motivation: "", category: "" });
+  const [goal, setGoal] = useState({ id: "", title: "", duration: "6 months", motivation: "", category: "", created_at: "" } as any);
   const [allGoals, setAllGoals] = useState<any[]>([]);
   const [currentGoalId, setCurrentGoalId] = useState<string | null>(null);
   const [roadmap, setRoadmap] = useState<Record<string, any> | null>(null);
@@ -1252,6 +1468,11 @@ export default function SabiTrack() {
   const [userId, setUserId] = useState<string | null>(null);
   const [bgMode, setBgMode] = useState<"white" | "black">("white");
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
+  const [analytics, setAnalytics] = useState({
+    streak: 0,
+    currentWeek: 1,
+    weeklyTrend: [0, 0, 0, 0, 0, 0, 0]
+  });
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [isManualMode, setIsManualMode] = useState(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -1398,6 +1619,8 @@ export default function SabiTrack() {
               
               if (tasksData) {
                 setTasks(tasksData.map(t => t.completed));
+                // Calculate analytics after loading tasks
+                setTimeout(() => calculateAnalytics(), 100);
               }
             }
             
@@ -1440,6 +1663,8 @@ export default function SabiTrack() {
         
         if (tasksData) {
           setTasks(tasksData.map(t => t.completed));
+          // Calculate analytics after loading tasks
+          setTimeout(() => calculateAnalytics(), 100);
         }
       }
     }
@@ -1553,15 +1778,15 @@ export default function SabiTrack() {
           goal_id: currentGoalId,
           year_target: roadmapData.year_target,
           quarter_target: roadmapData.quarter_target,
-          month_target: roadmapData.month_target,
-          week_target: roadmapData.week_target,
+          month_targets: roadmapData.month_targets,
+          week_targets: roadmapData.week_targets,
         })
         .select()
         .single();
       
       if (data) {
         // Save tasks
-        const taskPromises = roadmapData.daily_tasks.map((task: string, idx: number) =>
+        const taskPromises = roadmapData.daily_targets.map((task: string, idx: number) =>
           supabase.from("tasks").insert({
             roadmap_id: data.id,
             task_text: task,
@@ -1578,6 +1803,77 @@ export default function SabiTrack() {
     }
   };
 
+  const calculateAnalytics = useCallback(async () => {
+    if (!roadmap || !goal.created_at) return;
+
+    try {
+      // Get all tasks with their completion status and update times
+      const { data: tasksData } = await supabase
+        .from("tasks")
+        .select("completed, updated_at, task_order")
+        .eq("roadmap_id", roadmap.id)
+        .order("updated_at", { ascending: false });
+
+      if (!tasksData) return;
+
+      const goalCreatedDate = new Date(goal.created_at);
+      const now = new Date();
+      
+      // Calculate current week
+      const weeksSinceCreation = Math.floor((now.getTime() - goalCreatedDate.getTime()) / (1000 * 60 * 60 * 24 * 7)) + 1;
+      
+      // Calculate streak - consecutive days where all tasks were completed
+      let streak = 0;
+      const dailyTasksCount = roadmap.daily_targets?.length || 3;
+      
+      // Group tasks by completion date
+      const tasksByDate: Record<string, any[]> = {};
+      tasksData.forEach(task => {
+        if (task.completed) {
+          const date = new Date(task.updated_at).toDateString();
+          if (!tasksByDate[date]) tasksByDate[date] = [];
+          tasksByDate[date].push(task);
+        }
+      });
+
+      // Check consecutive days backwards from today
+      for (let i = 0; i < 365; i++) { // Max 365 days back
+        const checkDate = new Date();
+        checkDate.setDate(checkDate.getDate() - i);
+        const dateStr = checkDate.toDateString();
+        
+        const completedTasks = tasksByDate[dateStr] || [];
+        const completedCount = completedTasks.length;
+        
+        if (completedCount >= dailyTasksCount) {
+          streak++;
+        } else {
+          break; // Streak broken
+        }
+      }
+
+      // Calculate weekly trend - completion % for last 7 days
+      const weeklyTrend = [];
+      for (let i = 6; i >= 0; i--) {
+        const checkDate = new Date();
+        checkDate.setDate(checkDate.getDate() - i);
+        const dateStr = checkDate.toDateString();
+        
+        const completedTasks = tasksByDate[dateStr] || [];
+        const completionPercent = dailyTasksCount > 0 ? Math.round((completedTasks.length / dailyTasksCount) * 100) : 0;
+        weeklyTrend.push(completionPercent);
+      }
+
+      setAnalytics({
+        streak,
+        currentWeek: weeksSinceCreation,
+        weeklyTrend
+      });
+    } catch (error) {
+      console.error("Error calculating analytics:", error);
+    }
+  }, [roadmap, goal.created_at, supabase]);
+
   const updateTaskStatus = async (taskIndex: number, completed: boolean) => {
     try {
       if (!roadmap || !userId) return;
@@ -1593,7 +1889,28 @@ export default function SabiTrack() {
           .from("tasks")
           .update({ completed })
           .eq("id", tasksData[taskIndex].id);
+        
+        // Show notification when task is completed
+        if (completed && "Notification" in window) {
+          const taskText = dailyTasks[taskIndex] || "a daily target";
+          if (Notification.permission === "granted") {
+            new Notification("Task Completed! 🎉", {
+              body: `Great job! You've completed: "${taskText}"`,
+            });
+          } else if (Notification.permission !== "denied") {
+            Notification.requestPermission().then(permission => {
+              if (permission === "granted") {
+                new Notification("Task Completed! 🎉", {
+                  body: `Great job! You've completed: "${taskText}"`,
+                });
+              }
+            });
+          }
+        }
       }
+      
+      // Recalculate analytics after task update
+      setTimeout(() => calculateAnalytics(), 100);
     } catch (error) {
       console.error("Error updating task:", error);
     }
@@ -1680,7 +1997,7 @@ export default function SabiTrack() {
             onHelp={handleIosInstallHelp}
             onDismiss={() => setShowInstallPrompt(false)}
           />
-          <DashboardScreen user={user} goal={goal} allGoals={allGoals} currentGoalId={currentGoalId} switchGoal={switchGoal} roadmap={roadmap} tasks={tasks} setTasks={(newTasks) => { setTasks(newTasks); newTasks.forEach((completed, idx) => updateTaskStatus(idx, completed)); }} onCreateGoal={() => { setGoal({ id: "", title: "", duration: "6 months", motivation: "", category: "" }); setScreen("wizard"); }} onEditGoal={(goalToEdit) => { setGoal(goalToEdit); setScreen("wizard"); }} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} dbConnected={dbConnected} onSettings={() => setScreen("settings")} onLogoClick={() => setScreen("dashboard")} />
+          <DashboardScreen user={user} goal={goal} allGoals={allGoals} currentGoalId={currentGoalId} switchGoal={switchGoal} roadmap={roadmap} tasks={tasks} setTasks={(newTasks) => { setTasks(newTasks); newTasks.forEach((completed, idx) => updateTaskStatus(idx, completed)); }} onCreateGoal={() => { setGoal({ id: "", title: "", duration: "6 months", motivation: "", category: "" }); setScreen("wizard"); }} onEditGoal={(goalToEdit) => { setGoal(goalToEdit); setScreen("wizard"); }} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} dbConnected={dbConnected} analytics={analytics} onSettings={() => setScreen("settings")} onLogoClick={() => setScreen("dashboard")} />
         </>
       )}
     </div>
