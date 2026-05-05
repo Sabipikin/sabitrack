@@ -48,6 +48,7 @@ type DashboardScreenProps = {
   roadmap: Record<string, any> | null;
   tasks: boolean[];
   setTasks: (tasks: boolean[]) => void;
+  onTaskUpdate: (taskIndex: number, completed: boolean, taskText: string) => void;
   onCreateGoal: () => void;
   onEditGoal: (goal: any) => void;
   bgMode: "white" | "black";
@@ -998,7 +999,7 @@ function SettingsScreen({ user, onBack, bgMode, toggleBgMode, notificationsEnabl
 }
 
 function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void }) {
-  const { user, goal, allGoals, currentGoalId, switchGoal, roadmap, tasks, setTasks, onCreateGoal, onEditGoal, bgMode, toggleBgMode, dbConnected, analytics, onSettings, onLogoClick } = props;
+  const { user, goal, allGoals, currentGoalId, switchGoal, roadmap, tasks, setTasks, onTaskUpdate, onCreateGoal, onEditGoal, bgMode, toggleBgMode, dbConnected, analytics, onSettings, onLogoClick } = props;
   const [activeTab, setActiveTab] = useState("today");
   const [showGoalMenu, setShowGoalMenu] = useState(false);
   const done = tasks.filter(Boolean).length;
@@ -1312,7 +1313,13 @@ function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void
               {dailyTasks.map((task, i) => (
                 <div
                   key={i}
-                  onClick={() => { const t = [...tasks]; t[i] = !t[i]; setTasks(t); }}
+                  onClick={() => { 
+                    const newCompleted = !tasks[i];
+                    const t = [...tasks]; 
+                    t[i] = newCompleted; 
+                    setTasks(t);
+                    onTaskUpdate(i, newCompleted, task);
+                  }}
                   style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "13px", borderRadius: 16, background: tasks[i] ? `${C.green}0F` : C.surface, border: `1.5px solid ${tasks[i] ? `${C.green}30` : C.border}`, cursor: "pointer", transition: "all .18s" }}
                 >
                   <div style={{ width: 24, height: 24, borderRadius: 8, border: `2px solid ${tasks[i] ? C.green : C.border}`, background: tasks[i] ? C.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1, transition: "all .2s", animation: tasks[i] ? "pop .3s ease" : "none" }}>
@@ -1874,7 +1881,7 @@ export default function SabiTrack() {
     }
   }, [roadmap, goal.created_at, supabase]);
 
-  const updateTaskStatus = async (taskIndex: number, completed: boolean) => {
+  const updateTaskStatus = async (taskIndex: number, completed: boolean, taskText?: string) => {
     try {
       if (!roadmap || !userId) return;
       
@@ -1892,16 +1899,16 @@ export default function SabiTrack() {
         
         // Show notification when task is completed
         if (completed && "Notification" in window) {
-          const taskText = dailyTasks[taskIndex] || "a daily target";
+          const taskTextToShow = taskText || "a daily target";
           if (Notification.permission === "granted") {
             new Notification("Task Completed! 🎉", {
-              body: `Great job! You've completed: "${taskText}"`,
+              body: `Great job! You've completed: "${taskTextToShow}"`,
             });
           } else if (Notification.permission !== "denied") {
             Notification.requestPermission().then(permission => {
               if (permission === "granted") {
                 new Notification("Task Completed! 🎉", {
-                  body: `Great job! You've completed: "${taskText}"`,
+                  body: `Great job! You've completed: "${taskTextToShow}"`,
                 });
               }
             });
@@ -1997,7 +2004,7 @@ export default function SabiTrack() {
             onHelp={handleIosInstallHelp}
             onDismiss={() => setShowInstallPrompt(false)}
           />
-          <DashboardScreen user={user} goal={goal} allGoals={allGoals} currentGoalId={currentGoalId} switchGoal={switchGoal} roadmap={roadmap} tasks={tasks} setTasks={(newTasks) => { setTasks(newTasks); newTasks.forEach((completed, idx) => updateTaskStatus(idx, completed)); }} onCreateGoal={() => { setGoal({ id: "", title: "", duration: "6 months", motivation: "", category: "" }); setScreen("wizard"); }} onEditGoal={(goalToEdit) => { setGoal(goalToEdit); setScreen("wizard"); }} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} dbConnected={dbConnected} analytics={analytics} onSettings={() => setScreen("settings")} onLogoClick={() => setScreen("dashboard")} />
+          <DashboardScreen user={user} goal={goal} allGoals={allGoals} currentGoalId={currentGoalId} switchGoal={switchGoal} roadmap={roadmap} tasks={tasks} setTasks={(newTasks) => { setTasks(newTasks); }} onTaskUpdate={(taskIndex, completed, taskText) => updateTaskStatus(taskIndex, completed, taskText)} onCreateGoal={() => { setGoal({ id: "", title: "", duration: "6 months", motivation: "", category: "" }); setScreen("wizard"); }} onEditGoal={(goalToEdit) => { setGoal(goalToEdit); setScreen("wizard"); }} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} dbConnected={dbConnected} analytics={analytics} onSettings={() => setScreen("settings")} onLogoClick={() => setScreen("dashboard")} />
         </>
       )}
     </div>
