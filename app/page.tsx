@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 const lightPalette = {
@@ -54,7 +54,18 @@ type DashboardScreenProps = {
   bgMode: "white" | "black";
   toggleBgMode: () => void;
   dbConnected: boolean | null;
-  analytics: { streak: number; currentWeek: number; weeklyTrend: number[] };
+  analytics: { 
+    streak: number; 
+    currentWeek: number; 
+    weeklyTrend: number[];
+    totalCompleted: number;
+    completionRate: number;
+    bestStreak: number;
+    averageDaily: number;
+    goalProgress: number;
+    weeklyProgress: number;
+    monthlyProgress: number;
+  };
   onSettings: () => void;
 };
 
@@ -210,7 +221,7 @@ function LandingScreen({ onStart, bgMode, toggleBgMode, onLogoClick }: { onStart
   );
 }
 
-function SignupScreen({ user, setUser, onNext, onSignin, isLoading, onLogoClick }: { user: { name: string; email: string; whatsapp: string; password: string; username: string }; setUser: (user: any) => void; onNext: () => void; onSignin: () => void; isLoading: boolean; onLogoClick: () => void }) {
+function SignupScreen({ user, setUser, onNext, onSignin, isLoading, onLogoClick }: { user: { name: string; email: string; whatsapp: string; password: string; username: string }; setUser: (user: any) => void; onNext: (userData: { name: string; email: string; whatsapp: string; password: string; username: string }) => Promise<void>; onSignin: () => void; isLoading: boolean; onLogoClick: () => void }) {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const ready = user.username.trim() && user.email.trim() && user.password.length >= 6 && user.name.trim();
   return (
@@ -245,7 +256,7 @@ function SignupScreen({ user, setUser, onNext, onSignin, isLoading, onLogoClick 
               📱 daily accountability drops straight to your whatsapp. no app download needed.
             </p>
           </div>
-          <button onClick={() => ready && onNext()} disabled={!ready || isLoading} style={Lime({ width: "100%", padding: "17px", opacity: ready && !isLoading ? 1 : 0.3 })}>
+          <button onClick={() => ready && onNext(user)} disabled={!ready || isLoading} style={Lime({ width: "100%", padding: "17px", opacity: ready && !isLoading ? 1 : 0.3 })}>
             {isLoading ? "creating..." : "create account →"}
           </button>
           <div style={{ textAlign: "center", marginTop: 8 }}>
@@ -871,7 +882,7 @@ function RoadmapScreen({ roadmap, setRoadmap, loading, goal, onApprove, onRegene
   );
 }
 
-function SettingsScreen({ user, onBack, bgMode, toggleBgMode, notificationsEnabled, sendTestNotification, onLogoClick }: { user: { name: string; email: string; whatsapp: string }; onBack: () => void; bgMode: "white" | "black"; toggleBgMode: () => void; notificationsEnabled: boolean; sendTestNotification: () => void; onLogoClick: () => void }) {
+function SettingsScreen({ user, onBack, bgMode, toggleBgMode, notificationsEnabled, sendTestNotification, onLogoClick, notificationTime, setNotificationTime, notificationEnabled: notificationScheduleEnabled, toggleNotificationSchedule, scheduleDailyReminder }: { user: { name: string; email: string; whatsapp: string }; onBack: () => void; bgMode: "white" | "black"; toggleBgMode: () => void; notificationsEnabled: boolean; sendTestNotification: () => void; onLogoClick: () => void; notificationTime: string; setNotificationTime: (time: string) => void; notificationEnabled: boolean; toggleNotificationSchedule: (enabled: boolean) => void; scheduleDailyReminder: () => void }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -977,16 +988,63 @@ function SettingsScreen({ user, onBack, bgMode, toggleBgMode, notificationsEnabl
                 {notificationsEnabled && <Pill color={C.green}>enabled</Pill>}
               </div>
             </div>
-            {notificationsEnabled ? (
-              <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={sendTestNotification} style={Ghost({ flex: 1, fontSize: 13 })}>
-                  test notification
-                </button>
-                <div style={{ padding: "10px 14px", background: `${C.lime}10`, border: `1px solid ${C.lime}30`, borderRadius: 8, fontSize: 12, color: C.lime, flex: 2 }}>
-                  Daily reminders at 8 AM
+
+            {notificationsEnabled && (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Daily reminders</div>
+                    <div style={{ fontSize: 12, color: C.muted }}>Schedule automatic reminders</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div 
+                      onClick={() => toggleNotificationSchedule(!notificationScheduleEnabled)}
+                      style={{ width: 44, height: 24, borderRadius: 12, background: notificationScheduleEnabled ? C.cyan : C.border, position: "relative", cursor: "pointer" }}
+                    >
+                      <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: notificationScheduleEnabled ? 22 : 2, transition: "all .2s" }} />
+                    </div>
+                    {notificationScheduleEnabled && <Pill color={C.cyan}>scheduled</Pill>}
+                  </div>
                 </div>
-              </div>
-            ) : (
+
+                {notificationScheduleEnabled && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: C.muted }}>Time:</div>
+                    <input
+                      type="time"
+                      value={notificationTime}
+                      onChange={(e) => {
+                        setNotificationTime(e.target.value);
+                        // Reschedule with new time
+                        setTimeout(() => scheduleDailyReminder(), 100);
+                      }}
+                      style={{
+                        padding: "8px 12px",
+                        border: `1px solid ${C.border}`,
+                        borderRadius: 6,
+                        background: C.bg,
+                        color: C.text,
+                        fontSize: 14,
+                        flex: 1
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={sendTestNotification} style={Ghost({ flex: 1, fontSize: 13 })}>
+                    test notification
+                  </button>
+                  {notificationScheduleEnabled && (
+                    <div style={{ padding: "10px 14px", background: `${C.cyan}10`, border: `1px solid ${C.cyan}30`, borderRadius: 8, fontSize: 12, color: C.cyan, flex: 2 }}>
+                      Daily at {notificationTime}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {!notificationsEnabled && (
               <div style={{ padding: "10px 12px", background: `${C.amber}10`, border: `1px solid ${C.amber}30`, borderRadius: 8, fontSize: 13, color: C.amber }}>
                 Enable browser notifications to get daily reminders.
               </div>
@@ -1008,6 +1066,7 @@ function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void
   const firstName = user.name?.split(" ")[0] || "there";
   const dailyTasks: string[] = roadmap?.daily_targets || ["plan your week", "take one action", "log your progress"];
   const days = ["M", "T", "W", "T", "F", "S", "S"];
+  const mobileGrid = window?.innerWidth < 640 ? { gridTemplateColumns: "1fr 1fr" } : {};
 
   // Categorize goals
   const now = new Date();
@@ -1320,7 +1379,10 @@ function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void
                     setTasks(t);
                     onTaskUpdate(i, newCompleted, task);
                   }}
-                  style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "13px", borderRadius: 16, background: tasks[i] ? `${C.green}0F` : C.surface, border: `1.5px solid ${tasks[i] ? `${C.green}30` : C.border}`, cursor: "pointer", transition: "all .18s" }}
+                  style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "13px", borderRadius: 16, background: tasks[i] ? `${C.green}0F` : C.surface, border: `1.5px solid ${tasks[i] ? `${C.green}30` : C.border}`, cursor: "pointer", transition: "all .18s", transform: "scale(1)" }}
+                  className="btn-hover"
+                  onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
                 >
                   <div style={{ width: 24, height: 24, borderRadius: 8, border: `2px solid ${tasks[i] ? C.green : C.border}`, background: tasks[i] ? C.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1, transition: "all .2s", animation: tasks[i] ? "pop .3s ease" : "none" }}>
                     {tasks[i] && <span style={{ fontSize: 12, color: "#07070E", fontWeight: 900 }}>✓</span>}
@@ -1338,12 +1400,19 @@ function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void
             )}
           </div>
 
-          <div className="fadeUp s4" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            {[{ icon: "🔥", label: "streak", val: `${analytics.streak} day${analytics.streak !== 1 ? 's' : ''}`, color: C.amber }, { icon: "📅", label: "week", val: `week ${analytics.currentWeek}`, color: C.cyan }].map(s => (
-              <div key={s.label} style={Card({ textAlign: "center", padding: "16px 12px" })}>
-                <div style={{ fontSize: 24, marginBottom: 4 }}>{s.icon}</div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 18, fontWeight: 800, color: s.color, marginBottom: 2 }}>{s.val}</div>
-                <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
+          <div className="fadeUp s4" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, ...mobileGrid }}>
+            {[
+              { icon: "🔥", label: "current streak", val: `${analytics.streak} day${analytics.streak !== 1 ? 's' : ''}`, color: C.amber },
+              { icon: "🏆", label: "best streak", val: `${analytics.bestStreak} day${analytics.bestStreak !== 1 ? 's' : ''}`, color: C.amber },
+              { icon: "📅", label: "week", val: `week ${analytics.currentWeek}`, color: C.cyan },
+              { icon: "✅", label: "total completed", val: analytics.totalCompleted.toString(), color: C.green },
+              { icon: "📊", label: "completion rate", val: `${analytics.completionRate}%`, color: C.cyan },
+              { icon: "🎯", label: "daily average", val: analytics.averageDaily.toString(), color: C.violet }
+            ].map(s => (
+              <div key={s.label} style={Card({ textAlign: "center", padding: "14px 10px" })} className="card-hover">
+                <div style={{ fontSize: 20, marginBottom: 4 }}>{s.icon}</div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 16, fontWeight: 800, color: s.color, marginBottom: 2 }}>{s.val}</div>
+                <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, lineHeight: 1.2 }}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -1366,6 +1435,31 @@ function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void
                   <span style={{ fontSize: 10, color: i === 0 ? C.lime : C.dim, fontWeight: 700 }}>{days[i]}</span>
                 </div>
               ))}
+            </div>
+            <div style={{ marginTop: 12, fontSize: 12, color: C.muted, textAlign: "center" }}>
+              Weekly completion: {analytics.weeklyProgress}%
+            </div>
+          </div>
+
+          <div className="fadeUp s2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={Card()}>
+              <div style={{ fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 2, fontWeight: 800, marginBottom: 12 }}>🎯 goal progress</div>
+              <div style={{ position: "relative", height: 8, background: C.surface, borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ width: `${analytics.goalProgress}%`, height: "100%", background: `linear-gradient(90deg,${C.cyan},${C.violet})`, borderRadius: 4 }} />
+              </div>
+              <div style={{ marginTop: 8, fontSize: 12, color: C.muted, textAlign: "center" }}>
+                {analytics.goalProgress}% complete
+              </div>
+            </div>
+
+            <div style={Card()}>
+              <div style={{ fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 2, fontWeight: 800, marginBottom: 12 }}>📈 monthly progress</div>
+              <div style={{ position: "relative", height: 8, background: C.surface, borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ width: `${analytics.monthlyProgress}%`, height: "100%", background: `linear-gradient(90deg,${C.green},${C.lime})`, borderRadius: 4 }} />
+              </div>
+              <div style={{ marginTop: 8, fontSize: 12, color: C.muted, textAlign: "center" }}>
+                {analytics.monthlyProgress}% this month
+              </div>
             </div>
           </div>
 
@@ -1473,14 +1567,66 @@ export default function SabiTrack() {
   const [loading, setLoading] = useState(false);
   const [tasks, setTasks] = useState<boolean[]>([false, false, false]);
   const [userId, setUserId] = useState<string | null>(null);
-  const [bgMode, setBgMode] = useState<"white" | "black">("white");
+  const [bgMode, setBgMode] = useState<"white" | "black">("black");
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
   const [analytics, setAnalytics] = useState({
     streak: 0,
     currentWeek: 1,
-    weeklyTrend: [0, 0, 0, 0, 0, 0, 0]
+    weeklyTrend: [0, 0, 0, 0, 0, 0, 0],
+    totalCompleted: 0,
+    completionRate: 0,
+    bestStreak: 0,
+    averageDaily: 0,
+    goalProgress: 0,
+    weeklyProgress: 0,
+    monthlyProgress: 0
   });
+  const [notificationTime, setNotificationTime] = useState("09:00");
+  const [notificationEnabled, setNotificationEnabled] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const notificationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const scheduleDailyReminder = () => {
+    if (notificationIntervalRef.current) {
+      clearInterval(notificationIntervalRef.current);
+    }
+
+    if (!notificationEnabled || !notificationsEnabled) return;
+
+    const [hours, minutes] = notificationTime.split(':').map(Number);
+    const now = new Date();
+    const reminderTime = new Date();
+    reminderTime.setHours(hours, minutes, 0, 0);
+
+    // If the time has already passed today, schedule for tomorrow
+    if (reminderTime <= now) {
+      reminderTime.setDate(reminderTime.getDate() + 1);
+    }
+
+    const timeUntilReminder = reminderTime.getTime() - now.getTime();
+
+    // Schedule the first reminder
+    setTimeout(() => {
+      sendReminderNotification();
+      
+      // Then schedule daily reminders every 24 hours
+      notificationIntervalRef.current = setInterval(() => {
+        sendReminderNotification();
+      }, 24 * 60 * 60 * 1000); // 24 hours
+    }, timeUntilReminder);
+  };
+
+  const toggleNotificationSchedule = (enabled: boolean) => {
+    setNotificationEnabled(enabled);
+    if (enabled) {
+      scheduleDailyReminder();
+    } else {
+      if (notificationIntervalRef.current) {
+        clearInterval(notificationIntervalRef.current);
+        notificationIntervalRef.current = null;
+      }
+    }
+  };
   const [isManualMode, setIsManualMode] = useState(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
@@ -1544,7 +1690,85 @@ export default function SabiTrack() {
 
     new Notification("Sabi Track Reminder", {
       body: "You've got a daily target waiting. Open the app and crush it!",
+      icon: "/icon-192x192.png",
+      badge: "/icon-192x192.png",
+      tag: "sabi-track-reminder",
+      requireInteraction: false,
+      silent: false
     });
+  };
+
+  const sendCompletionNotification = (taskText: string, isAllCompleted: boolean = false) => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+
+    const messages = [
+      `Great job! You've completed: "${taskText}"`,
+      `Well done! Task "${taskText}" is now complete!`,
+      `Excellent work! "${taskText}" has been ticked off!`,
+      `Awesome! You've accomplished: "${taskText}"`,
+      `Fantastic! Task completed: "${taskText}"`
+    ];
+
+    const allCompletedMessages = [
+      "🎉 All daily targets completed! You're on fire!",
+      "🏆 Amazing! All tasks done for today!",
+      "⭐ Perfect! You've conquered all your goals today!",
+      "💪 Incredible! Daily targets achieved!"
+    ];
+
+    const message = isAllCompleted
+      ? allCompletedMessages[Math.floor(Math.random() * allCompletedMessages.length)]
+      : messages[Math.floor(Math.random() * messages.length)];
+
+    new Notification("Task Completed! 🎉", {
+      body: message,
+      icon: "/icon-192x192.png",
+      badge: "/icon-192x192.png",
+      tag: "sabi-track-completion",
+      requireInteraction: false,
+      silent: false
+    });
+  };
+
+  const sendReminderNotification = () => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+
+    const reminders = [
+      "Don't forget your daily targets! Open Sabi Track to check them off.",
+      "Your goals are waiting! Time to make progress on your journey.",
+      "Stay on track! You've got targets to complete today.",
+      "Remember your goals! Open the app and keep the momentum going.",
+      "Daily reminder: Your targets are waiting for you!"
+    ];
+
+    const message = reminders[Math.floor(Math.random() * reminders.length)];
+
+    new Notification("Daily Reminder 🔔", {
+      body: message,
+      icon: "/icon-192x192.png",
+      badge: "/icon-192x192.png",
+      tag: "sabi-track-reminder",
+      requireInteraction: false,
+      silent: false
+    });
+  };
+
+  const sendStreakNotification = (streak: number) => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+
+    if (streak > 0 && streak % 7 === 0) { // Weekly milestone
+      new Notification("Weekly Milestone! 🎊", {
+        body: `Incredible! You've maintained a ${streak}-day streak! Keep it up!`,
+        icon: "/icon-192x192.png",
+        badge: "/icon-192x192.png",
+        tag: "sabi-track-streak",
+        requireInteraction: true,
+        silent: false
+      });
+    }
   };
 
   const handleInstallApp = async () => {
@@ -1671,7 +1895,7 @@ export default function SabiTrack() {
         if (tasksData) {
           setTasks(tasksData.map(t => t.completed));
           // Calculate analytics after loading tasks
-          setTimeout(() => calculateAnalytics(), 100);
+          setTimeout(() => calculateAnalytics(true), 100);
         }
       }
     }
@@ -1712,6 +1936,7 @@ export default function SabiTrack() {
       
       if (authData.user) {
         setUserId(authData.user.id);
+        setUser({ ...userData, password: "" });
         
         // Save user profile with username
         await supabase.from("users").insert({
@@ -1722,7 +1947,7 @@ export default function SabiTrack() {
           whatsapp: userData.whatsapp,
         });
 
-        setScreen("wizard");
+        setScreen("dashboard");
       }
     } catch (error: any) {
       console.error("Error saving user:", error);
@@ -1810,8 +2035,18 @@ export default function SabiTrack() {
     }
   };
 
-  const calculateAnalytics = useCallback(async () => {
+  const [analyticsCache, setAnalyticsCache] = useState<{ data: any; timestamp: number } | null>(null);
+  const ANALYTICS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  const calculateAnalytics = useCallback(async (force = false) => {
     if (!roadmap || !goal.created_at) return;
+
+    // Check cache first
+    const now = Date.now();
+    if (!force && analyticsCache && (now - analyticsCache.timestamp) < ANALYTICS_CACHE_DURATION) {
+      setAnalytics(analyticsCache.data);
+      return;
+    }
 
     try {
       // Get all tasks with their completion status and update times
@@ -1824,26 +2059,30 @@ export default function SabiTrack() {
       if (!tasksData) return;
 
       const goalCreatedDate = new Date(goal.created_at);
-      const now = new Date();
+      const nowDate = new Date();
+      const dailyTasksCount = roadmap.daily_targets?.length || 3;
       
       // Calculate current week
-      const weeksSinceCreation = Math.floor((now.getTime() - goalCreatedDate.getTime()) / (1000 * 60 * 60 * 24 * 7)) + 1;
-      
-      // Calculate streak - consecutive days where all tasks were completed
-      let streak = 0;
-      const dailyTasksCount = roadmap.daily_targets?.length || 3;
+      const weeksSinceCreation = Math.floor((nowDate.getTime() - goalCreatedDate.getTime()) / (1000 * 60 * 60 * 24 * 7)) + 1;
       
       // Group tasks by completion date
       const tasksByDate: Record<string, any[]> = {};
+      const allCompletedTasks: any[] = [];
+      
       tasksData.forEach(task => {
+        const date = new Date(task.updated_at).toDateString();
+        if (!tasksByDate[date]) tasksByDate[date] = [];
+        tasksByDate[date].push(task);
         if (task.completed) {
-          const date = new Date(task.updated_at).toDateString();
-          if (!tasksByDate[date]) tasksByDate[date] = [];
-          tasksByDate[date].push(task);
+          allCompletedTasks.push(task);
         }
       });
 
-      // Check consecutive days backwards from today
+      // Calculate streak - consecutive days where all tasks were completed
+      let streak = 0;
+      let bestStreak = 0;
+      let currentStreak = 0;
+      
       for (let i = 0; i < 365; i++) { // Max 365 days back
         const checkDate = new Date();
         checkDate.setDate(checkDate.getDate() - i);
@@ -1853,14 +2092,23 @@ export default function SabiTrack() {
         const completedCount = completedTasks.length;
         
         if (completedCount >= dailyTasksCount) {
-          streak++;
+          currentStreak++;
+          bestStreak = Math.max(bestStreak, currentStreak);
         } else {
-          break; // Streak broken
+          currentStreak = 0;
+        }
+        
+        // Current streak (from today backwards)
+        if (i === 0 && completedCount >= dailyTasksCount) {
+          streak = currentStreak;
         }
       }
 
       // Calculate weekly trend - completion % for last 7 days
       const weeklyTrend = [];
+      let weeklyCompleted = 0;
+      let weeklyTotal = 0;
+      
       for (let i = 6; i >= 0; i--) {
         const checkDate = new Date();
         checkDate.setDate(checkDate.getDate() - i);
@@ -1869,17 +2117,63 @@ export default function SabiTrack() {
         const completedTasks = tasksByDate[dateStr] || [];
         const completionPercent = dailyTasksCount > 0 ? Math.round((completedTasks.length / dailyTasksCount) * 100) : 0;
         weeklyTrend.push(completionPercent);
+        
+        weeklyCompleted += completedTasks.length;
+        weeklyTotal += dailyTasksCount;
       }
 
-      setAnalytics({
+      // Calculate monthly progress (last 30 days)
+      let monthlyCompleted = 0;
+      let monthlyTotal = 0;
+      
+      for (let i = 0; i < 30; i++) {
+        const checkDate = new Date();
+        checkDate.setDate(checkDate.getDate() - i);
+        const dateStr = checkDate.toDateString();
+        
+        const completedTasks = tasksByDate[dateStr] || [];
+        monthlyCompleted += completedTasks.length;
+        monthlyTotal += dailyTasksCount;
+      }
+
+      // Calculate overall metrics
+      const totalCompleted = allCompletedTasks.length;
+      const totalPossibleTasks = Object.keys(tasksByDate).length * dailyTasksCount;
+      const completionRate = totalPossibleTasks > 0 ? Math.round((totalCompleted / totalPossibleTasks) * 100) : 0;
+      
+      // Average daily completion
+      const daysTracked = Object.keys(tasksByDate).length;
+      const averageDaily = daysTracked > 0 ? Math.round((totalCompleted / daysTracked) * 10) / 10 : 0;
+      
+      // Goal progress (simplified - could be enhanced based on goal duration)
+      const goalDurationDays = goal.duration === "6 months" ? 180 : goal.duration === "3 months" ? 90 : 30;
+      const daysIntoGoal = Math.min(Math.floor((nowDate.getTime() - goalCreatedDate.getTime()) / (1000 * 60 * 60 * 24)), goalDurationDays);
+      const goalProgress = goalDurationDays > 0 ? Math.round((daysIntoGoal / goalDurationDays) * 100) : 0;
+      
+      // Weekly and monthly progress percentages
+      const weeklyProgress = weeklyTotal > 0 ? Math.round((weeklyCompleted / weeklyTotal) * 100) : 0;
+      const monthlyProgress = monthlyTotal > 0 ? Math.round((monthlyCompleted / monthlyTotal) * 100) : 0;
+
+      const newAnalytics = {
         streak,
         currentWeek: weeksSinceCreation,
-        weeklyTrend
-      });
+        weeklyTrend,
+        totalCompleted,
+        completionRate,
+        bestStreak,
+        averageDaily,
+        goalProgress,
+        weeklyProgress,
+        monthlyProgress
+      };
+
+      // Cache the results
+      setAnalyticsCache({ data: newAnalytics, timestamp: now });
+      setAnalytics(newAnalytics);
     } catch (error) {
       console.error("Error calculating analytics:", error);
     }
-  }, [roadmap, goal.created_at, supabase]);
+  }, [roadmap, goal.created_at, supabase, analyticsCache]);
 
   const updateTaskStatus = async (taskIndex: number, completed: boolean, taskText?: string) => {
     try {
@@ -1900,24 +2194,32 @@ export default function SabiTrack() {
         // Show notification when task is completed
         if (completed && "Notification" in window) {
           const taskTextToShow = taskText || "a daily target";
-          if (Notification.permission === "granted") {
-            new Notification("Task Completed! 🎉", {
-              body: `Great job! You've completed: "${taskTextToShow}"`,
-            });
-          } else if (Notification.permission !== "denied") {
-            Notification.requestPermission().then(permission => {
-              if (permission === "granted") {
-                new Notification("Task Completed! 🎉", {
-                  body: `Great job! You've completed: "${taskTextToShow}"`,
-                });
-              }
-            });
+          
+          // Check if all daily tasks are now completed
+          const { data: allTasks } = await supabase
+            .from("tasks")
+            .select("completed")
+            .eq("roadmap_id", roadmap.id);
+          
+          const dailyTasksCount = roadmap.daily_targets?.length || 3;
+          const completedTasksToday = allTasks?.filter(task => task.completed).length || 0;
+          const isAllCompleted = completedTasksToday >= dailyTasksCount;
+          
+          sendCompletionNotification(taskTextToShow, isAllCompleted);
+          
+          // Send streak notification if applicable
+          if (isAllCompleted) {
+            setTimeout(() => {
+              calculateAnalytics(true).then(() => {
+                sendStreakNotification(analytics.streak);
+              });
+            }, 200);
           }
         }
       }
       
       // Recalculate analytics after task update
-      setTimeout(() => calculateAnalytics(), 100);
+      setTimeout(() => calculateAnalytics(true), 100);
     } catch (error) {
       console.error("Error updating task:", error);
     }
@@ -1989,11 +2291,11 @@ export default function SabiTrack() {
   return (
     <div style={{ backgroundColor: C.bg, color: C.text, fontFamily: "'Nunito',sans-serif", minHeight: "100vh" }}>
       {screen === "landing" && <LandingScreen onStart={() => setScreen("signin")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} onLogoClick={() => setScreen("landing")} />}
-      {screen === "signup" && <SignupScreen user={user} setUser={setUser} onNext={() => setScreen("wizard")} onSignin={() => setScreen("signin")} isLoading={loading} onLogoClick={() => setScreen("landing")} />}
+      {screen === "signup" && <SignupScreen user={user} setUser={setUser} onNext={saveUserSignup} onSignin={() => setScreen("signin")} isLoading={loading} onLogoClick={() => setScreen("landing")} />}
       {screen === "signin" && <SigninScreen onNext={(email, password) => handleSignin(email, password)} onSignup={() => { setUser({ name: "", email: "", whatsapp: "", password: "", username: "" }); setScreen("signup"); }} isLoading={loading} onLogoClick={() => setScreen("landing")} />}
       {screen === "wizard" && <WizardScreen goal={goal} setGoal={setGoal} onGenerate={generateRoadmap} isEditing={!!goal.id} onLogoClick={() => setScreen("dashboard")} />}
       {screen === "roadmap" && isManualMode ? <ManualRoadmapForm goal={goal} onSave={handleManualRoadmapSave} isLoading={loading} onLogoClick={() => setScreen("dashboard")} /> : screen === "roadmap" && <RoadmapScreen roadmap={roadmap} setRoadmap={setRoadmap} loading={loading} goal={goal} onApprove={() => setScreen("dashboard")} onRegenerate={generateRoadmap} onLogoClick={() => setScreen("dashboard")} />}
-      {screen === "settings" && <SettingsScreen user={user} onBack={() => setScreen("dashboard")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} notificationsEnabled={notificationsEnabled} sendTestNotification={sendTestNotification} onLogoClick={() => setScreen("dashboard")} />}
+      {screen === "settings" && <SettingsScreen user={user} onBack={() => setScreen("dashboard")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} notificationsEnabled={notificationsEnabled} sendTestNotification={sendTestNotification} onLogoClick={() => setScreen("dashboard")} notificationTime={notificationTime} setNotificationTime={setNotificationTime} notificationEnabled={notificationEnabled} toggleNotificationSchedule={toggleNotificationSchedule} scheduleDailyReminder={scheduleDailyReminder} />}
       {screen === "dashboard" && (
         <>
           <InstallPrompt
