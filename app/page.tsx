@@ -286,7 +286,18 @@ function LandingScreen({ onStart, bgMode, toggleBgMode, onLogoClick, isDesktop }
 
 function SignupScreen({ user, setUser, onNext, onSignin, isLoading, onLogoClick, isDesktop }: { user: { name: string; email: string; whatsapp: string; password: string; username: string }; setUser: (user: any) => void; onNext: (userData: { name: string; email: string; whatsapp: string; password: string; username: string }) => Promise<void>; onSignin: () => void; isLoading: boolean; onLogoClick: () => void; isDesktop: boolean }) {
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [error, setError] = useState("");
   const ready = user.username.trim() && user.email.trim() && user.password.length >= 6 && user.name.trim();
+
+  const handleSignup = async () => {
+    if (!ready) return;
+    setError("");
+    try {
+      await onNext(user);
+    } catch (err: any) {
+      setError(err.message || "Failed to create account. Please try again.");
+    }
+  };
   return (
     <div style={page(isDesktop)}>
       <TopNav onLogoClick={onLogoClick} />
@@ -337,7 +348,12 @@ function SignupScreen({ user, setUser, onNext, onSignin, isLoading, onLogoClick,
               📱 daily accountability drops straight to your whatsapp. no app download needed.
             </p>
           </div>
-          <button onClick={() => ready && onNext(user)} disabled={!ready || isLoading} style={Lime({ width: "100%", padding: "17px", opacity: ready && !isLoading ? 1 : 0.3 })}>
+          {error && (
+            <div style={{ padding: "10px 12px", background: `${C.pink}10`, border: `1px solid ${C.pink}30`, borderRadius: 8, fontSize: 13, color: C.pink }}>
+              {error}
+            </div>
+          )}
+          <button onClick={handleSignup} disabled={!ready || isLoading} style={Lime({ width: "100%", padding: "17px", opacity: ready && !isLoading ? 1 : 0.3 })}>
             {isLoading ? "creating..." : "create account →"}
           </button>
           <div style={{ textAlign: "center", marginTop: 8 }}>
@@ -1989,7 +2005,8 @@ export default function SabiTrack() {
             
             setScreen("dashboard");
           } else {
-            setScreen("signup");
+            // User exists but has no goals — send to wizard
+            setScreen("wizard");
           }
         }
       } catch (error) {
@@ -2062,7 +2079,53 @@ export default function SabiTrack() {
 
       if (authData.user) {
         setUserId(authData.user.id);
-        setScreen("dashboard");
+
+        // Load profile
+        const { data: profile } = await supabase
+          .from("users")
+          .select("name, email, whatsapp, username")
+          .eq("id", authData.user.id)
+          .single();
+        if (profile) {
+          setUser({ ...profile, password: "", username: profile.username || "" });
+        }
+
+        // Check if user has goals
+        const { data: goalsData } = await supabase
+          .from("goals")
+          .select("*")
+          .eq("user_id", authData.user.id)
+          .order("created_at", { ascending: false });
+
+        if (goalsData && goalsData.length > 0) {
+          setAllGoals(goalsData);
+          const latestGoal = goalsData[0];
+          setCurrentGoalId(latestGoal.id);
+          setGoal(latestGoal);
+
+          const { data: roadmapData } = await supabase
+            .from("roadmaps")
+            .select("*")
+            .eq("goal_id", latestGoal.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .single();
+
+          if (roadmapData) {
+            setRoadmap(roadmapData);
+            const { data: tasksData } = await supabase
+              .from("tasks")
+              .select("completed")
+              .eq("roadmap_id", roadmapData.id)
+              .order("task_order", { ascending: true });
+            if (tasksData) {
+              setTasks(tasksData.map(t => t.completed));
+            }
+          }
+          setScreen("dashboard");
+        } else {
+          setScreen("wizard");
+        }
       }
     } catch (error: any) {
       console.error("Sign in error:", error);
@@ -2086,7 +2149,7 @@ export default function SabiTrack() {
       if (authData.user) {
         setUserId(authData.user.id);
         setUser({ ...userData, password: "" });
-        
+
         // Save user profile with username
         await supabase.from("users").insert({
           id: authData.user.id,
@@ -2096,7 +2159,7 @@ export default function SabiTrack() {
           whatsapp: userData.whatsapp,
         });
 
-        setScreen("dashboard");
+        setScreen("wizard");
       }
     } catch (error: any) {
       console.error("Error saving user:", error);
