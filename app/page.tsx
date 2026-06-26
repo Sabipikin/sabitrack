@@ -83,9 +83,9 @@ type DashboardScreenProps = {
 };
 
 const page = (desktop = false): React.CSSProperties => ({
-  maxWidth: desktop ? 900 : 430,
+  maxWidth: desktop ? 1100 : 430,
   margin: "0 auto",
-  padding: desktop ? "0 40px 60px" : "0 18px 110px",
+  padding: desktop ? "0 48px 60px" : "0 18px 110px",
   minHeight: "100vh",
   display: "flex",
   flexDirection: "column",
@@ -197,43 +197,43 @@ function LandingScreen({ onStart, bgMode, toggleBgMode, onLogoClick, isDesktop }
 
       {isDesktop ? (
         <>
-          <div className="fadeUp" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 60, alignItems: "center", paddingTop: 40, minHeight: 420 }}>
+          <div className="fadeUp" style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 80, alignItems: "center", paddingTop: 60, minHeight: 480 }}>
             <div>
-              <Pill color={C.lime} style={{ marginBottom: 22 }}>
+              <Pill color={C.lime} style={{ marginBottom: 26 }}>
                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.lime, display: "inline-block" }} />
                 built for the execution era
               </Pill>
-              <h1 style={H(52, { marginBottom: 22, lineHeight: 1.08 })}>
+              <h1 style={H(56, { marginBottom: 24, lineHeight: 1.05 })}>
                 Stop ghosting<br />
                 your goals. <span style={{ color: C.lime }}>fr.</span>
               </h1>
-              <p style={{ fontSize: 18, color: C.muted, lineHeight: 1.7, marginBottom: 36, fontWeight: 500, maxWidth: 420 }}>
+              <p style={{ fontSize: 19, color: C.muted, lineHeight: 1.75, marginBottom: 40, fontWeight: 500 }}>
                 One real goal → AI breaks it into daily moves → WhatsApp keeps you locked in. No fluff. Just results.
               </p>
-              <button onClick={onStart} style={Lime({ padding: "18px 48px", fontSize: 17 })}>
+              <button onClick={onStart} style={Lime({ padding: "20px 52px", fontSize: 18, borderRadius: 14 })}>
                 start my goal plan →
               </button>
-              <p style={{ fontSize: 12, color: C.dim, marginTop: 10, fontWeight: 600 }}>
+              <p style={{ fontSize: 13, color: C.dim, marginTop: 12, fontWeight: 600 }}>
                 takes 2 mins • free • no cap
               </p>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               {features.map((f, i) => (
-                <div key={f.title} className={`fadeUp s${i + 1} card-hover`} style={Card({ display: "flex", flexDirection: "column", gap: 10, padding: "22px 18px" })}>
-                  <span style={{ fontSize: 28 }}>{f.icon}</span>
+                <div key={f.title} className={`fadeUp s${i + 1} card-hover`} style={Card({ display: "flex", flexDirection: "column", gap: 12, padding: "26px 22px" })}>
+                  <span style={{ fontSize: 32 }}>{f.icon}</span>
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Syne',sans-serif", marginBottom: 4 }}>{f.title}</div>
-                    <div style={{ fontSize: 13, color: C.muted, fontWeight: 500, lineHeight: 1.5 }}>{f.sub}</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, fontFamily: "'Syne',sans-serif", marginBottom: 5 }}>{f.title}</div>
+                    <div style={{ fontSize: 14, color: C.muted, fontWeight: 500, lineHeight: 1.55 }}>{f.sub}</div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "center", gap: 60, marginTop: 60, paddingTop: 32, borderTop: `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 80, marginTop: 70, paddingTop: 36, borderTop: `1px solid ${C.border}` }}>
             {[["2k+", "goals set"], ["94%", "hit week 1"], ["3 min", "to set up"]].map(([n, l]) => (
               <div key={String(l)} style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 32, fontWeight: 800, color: C.lime }}>{n}</div>
-                <div style={{ fontSize: 13, color: C.muted, marginTop: 4, fontWeight: 600 }}>{l}</div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 36, fontWeight: 800, color: C.lime }}>{n}</div>
+                <div style={{ fontSize: 14, color: C.muted, marginTop: 5, fontWeight: 600 }}>{l}</div>
               </div>
             ))}
           </div>
@@ -1066,7 +1066,7 @@ function SettingsScreen({ user, onBack, bgMode, toggleBgMode, notificationsEnabl
                 <div style={{ fontSize: 12, color: C.muted }}>Get daily reminders in your browser</div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 44, height: 24, borderRadius: 12, background: notificationsEnabled ? C.lime : C.border, position: "relative", cursor: "pointer" }}>
+                <div onClick={() => { if (!notificationsEnabled && "Notification" in window) { Notification.requestPermission().then(p => { if (p === "granted") { setNotificationsEnabled(true); } }); } }} style={{ width: 44, height: 24, borderRadius: 12, background: notificationsEnabled ? C.lime : C.border, position: "relative", cursor: "pointer" }}>
                   <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: notificationsEnabled ? 22 : 2, transition: "all .2s" }} />
                 </div>
                 {notificationsEnabled && <Pill color={C.green}>enabled</Pill>}
@@ -1781,13 +1781,6 @@ export default function SabiTrack() {
 
     if (Notification.permission === "granted") {
       setNotificationsEnabled(true);
-      return;
-    }
-
-    if (Notification.permission !== "denied") {
-      Notification.requestPermission().then(permission => {
-        setNotificationsEnabled(permission === "granted");
-      });
     }
   }, []);
 

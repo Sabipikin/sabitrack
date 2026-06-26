@@ -12,9 +12,13 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  if (!supabaseUrl || !supabaseKey) {
+    return supabaseResponse;
+  }
+
   const supabase = createServerClient(
-    supabaseUrl!,
-    supabaseKey!,
+    supabaseUrl,
+    supabaseKey,
     {
       cookies: {
         getAll() {
@@ -52,5 +56,4 @@ export const config = {
   ],
 }
 
-export default middleware;
 
