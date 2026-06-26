@@ -1904,13 +1904,30 @@ export default function SabiTrack() {
   const handleSignin = async (identifier: string, password: string) => {
     setLoading(true);
     try {
+      let email = identifier.trim();
+
+      // If not an email, look up the email by username or whatsapp
+      if (!email.includes("@")) {
+        const field = email.startsWith("+") ? "whatsapp" : "username";
+        const { data: found, error: lookupError } = await supabase
+          .from("users")
+          .select("email")
+          .eq(field, email)
+          .single();
+
+        if (lookupError || !found) {
+          throw new Error(`No account found with that ${field}.`);
+        }
+        email = found.email;
+      }
+
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: identifier,
-        password: password,
+        email,
+        password,
       });
-      
+
       if (authError) throw authError;
-      
+
       if (authData.user) {
         setUserId(authData.user.id);
         setScreen("dashboard");
@@ -2012,6 +2029,7 @@ export default function SabiTrack() {
           quarter_target: roadmapData.quarter_target,
           month_targets: roadmapData.month_targets,
           week_targets: roadmapData.week_targets,
+          daily_targets: roadmapData.daily_targets,
         })
         .select()
         .single();
@@ -2082,26 +2100,29 @@ export default function SabiTrack() {
       let streak = 0;
       let bestStreak = 0;
       let currentStreak = 0;
-      
-      for (let i = 0; i < 365; i++) { // Max 365 days back
+      let streakBroken = false;
+
+      for (let i = 0; i < 365; i++) {
         const checkDate = new Date();
         checkDate.setDate(checkDate.getDate() - i);
         const dateStr = checkDate.toDateString();
-        
+
         const completedTasks = tasksByDate[dateStr] || [];
-        const completedCount = completedTasks.length;
-        
+        const completedCount = completedTasks.filter((t: any) => t.completed).length;
+
         if (completedCount >= dailyTasksCount) {
           currentStreak++;
           bestStreak = Math.max(bestStreak, currentStreak);
         } else {
+          if (!streakBroken) {
+            streak = currentStreak;
+            streakBroken = true;
+          }
           currentStreak = 0;
         }
-        
-        // Current streak (from today backwards)
-        if (i === 0 && completedCount >= dailyTasksCount) {
-          streak = currentStreak;
-        }
+      }
+      if (!streakBroken) {
+        streak = currentStreak;
       }
 
       // Calculate weekly trend - completion % for last 7 days
@@ -2236,7 +2257,7 @@ export default function SabiTrack() {
       }
       
       await saveRoadmap(roadmapData);
-      setTasks(new Array(roadmapData.daily_tasks.length).fill(false));
+      setTasks(new Array(roadmapData.daily_targets.length).fill(false));
       setIsManualMode(false);
       setScreen("dashboard");
     } catch (error) {
@@ -2253,22 +2274,18 @@ export default function SabiTrack() {
     setLoading(true);
     setScreen("roadmap");
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("/api/generate-roadmap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: "You are a strategic execution planner. Return ONLY valid JSON. No markdown, no backticks, no preamble.",
-          messages: [{
-            role: "user",
-            content: `Create a practical accountability roadmap:\nGoal: ${goal.title}\nDuration: ${goal.duration}\nWhy: ${goal.motivation}\nCategory: ${goal.category}\n\nReturn exactly: {"year_target":"one motivating sentence","quarter_target":"one sentence","month_target":"one sentence","week_target":"one sentence","daily_tasks":["concrete task 1","concrete task 2","concrete task 3"]}`
-          }]
-        })
+          title: goal.title,
+          duration: goal.duration,
+          motivation: goal.motivation,
+          category: goal.category,
+        }),
       });
-      const data = await res.json();
-      const text = data.content[0].text.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(text);
+      if (!res.ok) throw new Error("AI generation failed");
+      const parsed = await res.json();
       
       // For editing, delete existing roadmap and tasks first
       if (goal.id && roadmap) {
@@ -2277,7 +2294,7 @@ export default function SabiTrack() {
       }
       
       await saveRoadmap(parsed);
-      setTasks(new Array(parsed.daily_tasks.length).fill(false));
+      setTasks(new Array((parsed.daily_targets || []).length).fill(false));
       setIsManualMode(false);
     } catch (error) {
       console.error("AI generation failed, switching to manual mode:", error);
