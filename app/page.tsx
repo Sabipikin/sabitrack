@@ -39,6 +39,19 @@ const darkPalette = {
 
 let C = { ...lightPalette };
 
+function useIsDesktop(breakpoint = 768) {
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia(`(min-width: ${breakpoint}px)`);
+    setIsDesktop(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [breakpoint]);
+  return isDesktop;
+}
+
 type DashboardScreenProps = {
   user: { name: string; email: string; whatsapp: string };
   goal: any;
@@ -69,14 +82,14 @@ type DashboardScreenProps = {
   onSettings: () => void;
 };
 
-const page: React.CSSProperties = {
-  maxWidth: 430,
+const page = (desktop = false): React.CSSProperties => ({
+  maxWidth: desktop ? 900 : 430,
   margin: "0 auto",
-  padding: "0 18px 110px",
+  padding: desktop ? "0 40px 60px" : "0 18px 110px",
   minHeight: "100vh",
   display: "flex",
   flexDirection: "column",
-};
+});
 
 const H = (sz = 30, x: React.CSSProperties = {}): React.CSSProperties => ({ fontFamily: "'Syne',sans-serif", fontSize: sz, fontWeight: 800, lineHeight: 1.15, letterSpacing: -0.5, color: C.text, ...x });
 const Card = (x: React.CSSProperties = {}): React.CSSProperties => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: "18px", boxShadow: `0 1px 3px ${C.shadow}`, ...x });
@@ -84,11 +97,13 @@ const Lime = (x: React.CSSProperties = {}): React.CSSProperties => ({ background
 const Ghost = (x: React.CSSProperties = {}): React.CSSProperties => ({ background: "transparent", color: C.muted, border: `1.5px solid ${C.border}`, borderRadius: 12, padding: "10px 20px", fontFamily: "inherit", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all .2s", ...x });
 const Input = (x: React.CSSProperties = {}): React.CSSProperties => ({ width: "100%", padding: "12px 14px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, fontSize: 14, fontFamily: "inherit", fontWeight: 500, outline: "none", boxSizing: "border-box", ...x });
 
-function Logo({ onClick }: { onClick?: () => void }) {
+function Logo({ onClick, large }: { onClick?: () => void; large?: boolean }) {
+  const sz = large ? 38 : 30;
+  const fs = large ? 20 : 16;
   return (
-    <div onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 8, cursor: onClick ? "pointer" : "default" }}>
-      <div style={{ width: 30, height: 30, background: C.lime, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 16, color: "#07070E" }}>S</div>
-      <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 16, letterSpacing: -0.4 }}>SabiTrack</span>
+    <div onClick={onClick} style={{ display: "flex", alignItems: "center", gap: large ? 10 : 8, cursor: onClick ? "pointer" : "default" }}>
+      <div style={{ width: sz, height: sz, background: C.lime, borderRadius: large ? 12 : 10, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: fs, color: "#07070E" }}>S</div>
+      <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: fs, letterSpacing: -0.4 }}>SabiTrack</span>
     </div>
   );
 }
@@ -168,80 +183,146 @@ function Pill({ children, color = C.violet, style = {} }: { children: React.Reac
   );
 }
 
-function LandingScreen({ onStart, bgMode, toggleBgMode, onLogoClick }: { onStart: () => void; bgMode: "white" | "black"; toggleBgMode: () => void; onLogoClick: () => void }) {
-  return (
-    <div style={page}>
-      <TopNav onLogoClick={onLogoClick} right={<div style={{ display: "flex", alignItems: "center", gap: 8 }}><button onClick={toggleBgMode} style={Ghost({ padding: "10px 12px", fontSize: 12, color: C.text, borderColor: C.muted })}>{bgMode === "black" ? "☀️ Light" : "🌙 Dark"}</button><button onClick={onStart} style={Ghost({ padding: "9px 18px", fontSize: 13 })}>log in</button></div>} />
-      <div className="fadeUp" style={{ paddingTop: 12 }}>
-        <Pill color={C.lime} style={{ marginBottom: 22 }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.lime, display: "inline-block" }} />
-          built for the execution era
-        </Pill>
-        <h1 style={H(42, { marginBottom: 18, lineHeight: 1.08 })}>
-          Stop ghosting<br />
-          your goals. <span style={{ color: C.lime }}>fr.</span>
-        </h1>
-        <p style={{ fontSize: 16, color: C.muted, lineHeight: 1.7, marginBottom: 34, fontWeight: 500 }}>
-          One real goal → AI breaks it into daily moves → WhatsApp keeps you locked in. No fluff. Just results.
-        </p>
-        <button onClick={onStart} style={Lime({ width: "100%", padding: "18px", fontSize: 17 })}>
-          start my goal plan →
-        </button>
-        <p style={{ textAlign: "center", fontSize: 12, color: C.dim, marginTop: 10, fontWeight: 600 }}>
-          takes 2 mins • free • no cap
-        </p>
-      </div>
+function LandingScreen({ onStart, bgMode, toggleBgMode, onLogoClick, isDesktop }: { onStart: () => void; bgMode: "white" | "black"; toggleBgMode: () => void; onLogoClick: () => void; isDesktop: boolean }) {
+  const features = [
+    { icon: "🎯", title: "one goal, max clarity", sub: "no overwhelm — just one thing at a time" },
+    { icon: "🤖", title: "ai builds your roadmap", sub: "year → quarter → month → week → today" },
+    { icon: "💬", title: "whatsapp accountability", sub: "daily check-ins where you already live" },
+    { icon: "🔥", title: "edit everything", sub: "ai starts it, you finish it your way" },
+  ];
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 36 }}>
-        {[
-          { icon: "🎯", title: "one goal, max clarity", sub: "no overwhelm — just one thing at a time" },
-          { icon: "🤖", title: "ai builds your roadmap", sub: "year → quarter → month → week → today" },
-          { icon: "💬", title: "whatsapp accountability", sub: "daily check-ins where you already live" },
-          { icon: "🔥", title: "edit everything", sub: "ai starts it, you finish it your way" },
-        ].map((f, i) => (
-          <div key={f.title} className={`fadeUp s${i + 1}`} style={Card({ display: "flex", alignItems: "flex-start", gap: 14, padding: "15px 16px" })}>
-            <span style={{ fontSize: 24, flexShrink: 0, marginTop: 1 }}>{f.icon}</span>
+  return (
+    <div style={page(isDesktop)}>
+      <TopNav onLogoClick={onLogoClick} right={<div style={{ display: "flex", alignItems: "center", gap: 8 }}><button onClick={toggleBgMode} style={Ghost({ padding: "10px 12px", fontSize: 12, color: C.text, borderColor: C.muted })}>{bgMode === "black" ? "☀️ Light" : "🌙 Dark"}</button><button onClick={onStart} style={Ghost({ padding: "9px 18px", fontSize: 13 })}>log in</button></div>} />
+
+      {isDesktop ? (
+        <>
+          <div className="fadeUp" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 60, alignItems: "center", paddingTop: 40, minHeight: 420 }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 800, fontFamily: "'Syne',sans-serif", marginBottom: 2 }}>{f.title}</div>
-              <div style={{ fontSize: 13, color: C.muted, fontWeight: 500 }}>{f.sub}</div>
+              <Pill color={C.lime} style={{ marginBottom: 22 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.lime, display: "inline-block" }} />
+                built for the execution era
+              </Pill>
+              <h1 style={H(52, { marginBottom: 22, lineHeight: 1.08 })}>
+                Stop ghosting<br />
+                your goals. <span style={{ color: C.lime }}>fr.</span>
+              </h1>
+              <p style={{ fontSize: 18, color: C.muted, lineHeight: 1.7, marginBottom: 36, fontWeight: 500, maxWidth: 420 }}>
+                One real goal → AI breaks it into daily moves → WhatsApp keeps you locked in. No fluff. Just results.
+              </p>
+              <button onClick={onStart} style={Lime({ padding: "18px 48px", fontSize: 17 })}>
+                start my goal plan →
+              </button>
+              <p style={{ fontSize: 12, color: C.dim, marginTop: 10, fontWeight: 600 }}>
+                takes 2 mins • free • no cap
+              </p>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {features.map((f, i) => (
+                <div key={f.title} className={`fadeUp s${i + 1} card-hover`} style={Card({ display: "flex", flexDirection: "column", gap: 10, padding: "22px 18px" })}>
+                  <span style={{ fontSize: 28 }}>{f.icon}</span>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Syne',sans-serif", marginBottom: 4 }}>{f.title}</div>
+                    <div style={{ fontSize: 13, color: C.muted, fontWeight: 500, lineHeight: 1.5 }}>{f.sub}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        ))}
-      </div>
-
-      <div style={{ display: "flex", justifyContent: "space-around", marginTop: 40, paddingTop: 28, borderTop: `1px solid ${C.border}` }}>
-        {[["2k+", "goals set"], ["94%", "hit week 1"], ["3 min", "to set up"]].map(([n, l]) => (
-          <div key={String(l)} style={{ textAlign: "center" }}>
-            <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 26, fontWeight: 800, color: C.lime }}>{n}</div>
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 2, fontWeight: 600 }}>{l}</div>
+          <div style={{ display: "flex", justifyContent: "center", gap: 60, marginTop: 60, paddingTop: 32, borderTop: `1px solid ${C.border}` }}>
+            {[["2k+", "goals set"], ["94%", "hit week 1"], ["3 min", "to set up"]].map(([n, l]) => (
+              <div key={String(l)} style={{ textAlign: "center" }}>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 32, fontWeight: 800, color: C.lime }}>{n}</div>
+                <div style={{ fontSize: 13, color: C.muted, marginTop: 4, fontWeight: 600 }}>{l}</div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      ) : (
+        <>
+          <div className="fadeUp" style={{ paddingTop: 12 }}>
+            <Pill color={C.lime} style={{ marginBottom: 22 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.lime, display: "inline-block" }} />
+              built for the execution era
+            </Pill>
+            <h1 style={H(42, { marginBottom: 18, lineHeight: 1.08 })}>
+              Stop ghosting<br />
+              your goals. <span style={{ color: C.lime }}>fr.</span>
+            </h1>
+            <p style={{ fontSize: 16, color: C.muted, lineHeight: 1.7, marginBottom: 34, fontWeight: 500 }}>
+              One real goal → AI breaks it into daily moves → WhatsApp keeps you locked in. No fluff. Just results.
+            </p>
+            <button onClick={onStart} style={Lime({ width: "100%", padding: "18px", fontSize: 17 })}>
+              start my goal plan →
+            </button>
+            <p style={{ textAlign: "center", fontSize: 12, color: C.dim, marginTop: 10, fontWeight: 600 }}>
+              takes 2 mins • free • no cap
+            </p>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 36 }}>
+            {features.map((f, i) => (
+              <div key={f.title} className={`fadeUp s${i + 1}`} style={Card({ display: "flex", alignItems: "flex-start", gap: 14, padding: "15px 16px" })}>
+                <span style={{ fontSize: 24, flexShrink: 0, marginTop: 1 }}>{f.icon}</span>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, fontFamily: "'Syne',sans-serif", marginBottom: 2 }}>{f.title}</div>
+                  <div style={{ fontSize: 13, color: C.muted, fontWeight: 500 }}>{f.sub}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-around", marginTop: 40, paddingTop: 28, borderTop: `1px solid ${C.border}` }}>
+            {[["2k+", "goals set"], ["94%", "hit week 1"], ["3 min", "to set up"]].map(([n, l]) => (
+              <div key={String(l)} style={{ textAlign: "center" }}>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 26, fontWeight: 800, color: C.lime }}>{n}</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2, fontWeight: 600 }}>{l}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-function SignupScreen({ user, setUser, onNext, onSignin, isLoading, onLogoClick }: { user: { name: string; email: string; whatsapp: string; password: string; username: string }; setUser: (user: any) => void; onNext: (userData: { name: string; email: string; whatsapp: string; password: string; username: string }) => Promise<void>; onSignin: () => void; isLoading: boolean; onLogoClick: () => void }) {
+function SignupScreen({ user, setUser, onNext, onSignin, isLoading, onLogoClick, isDesktop }: { user: { name: string; email: string; whatsapp: string; password: string; username: string }; setUser: (user: any) => void; onNext: (userData: { name: string; email: string; whatsapp: string; password: string; username: string }) => Promise<void>; onSignin: () => void; isLoading: boolean; onLogoClick: () => void; isDesktop: boolean }) {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const ready = user.username.trim() && user.email.trim() && user.password.length >= 6 && user.name.trim();
   return (
-    <div style={page}>
+    <div style={page(isDesktop)}>
       <TopNav onLogoClick={onLogoClick} />
-      <div className="fadeUp" style={{ paddingTop: 16 }}>
+      <div className="fadeUp" style={{ paddingTop: 16, maxWidth: isDesktop ? 480 : undefined, margin: isDesktop ? "0 auto" : undefined, ...(isDesktop ? Card({ padding: "36px 32px", marginTop: 20 }) : {}) }}>
         <h2 style={H(28, { marginBottom: 6 })}>create your account</h2>
         <p style={{ color: C.muted, fontSize: 15, marginBottom: 32, fontWeight: 500 }}>join sabi track & start crushing goals</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {[
-            { label: "your name", key: "name", type: "text", ph: "Ada Okafor" },
-            { label: "username", key: "username", type: "text", ph: "adaokafor" },
-            { label: "email", key: "email", type: "email", ph: "ada@example.com" },
-            { label: "whatsapp number", key: "whatsapp", type: "tel", ph: "+234 801 234 5678" },
-          ].map(f => (
-            <div key={f.key}>
-              <label style={{ display: "block", fontSize: 11, color: C.muted, marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}>{f.label}</label>
-              <input type={f.type} placeholder={f.ph} value={user[f.key as keyof typeof user]} onChange={e => setUser({ ...user, [f.key]: e.target.value })} disabled={isLoading} style={Input()} />
+          {isDesktop ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              {[
+                { label: "your name", key: "name", type: "text", ph: "Ada Okafor" },
+                { label: "username", key: "username", type: "text", ph: "adaokafor" },
+                { label: "email", key: "email", type: "email", ph: "ada@example.com" },
+                { label: "whatsapp number", key: "whatsapp", type: "tel", ph: "+234 801 234 5678" },
+              ].map(f => (
+                <div key={f.key}>
+                  <label style={{ display: "block", fontSize: 11, color: C.muted, marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}>{f.label}</label>
+                  <input type={f.type} placeholder={f.ph} value={user[f.key as keyof typeof user]} onChange={e => setUser({ ...user, [f.key]: e.target.value })} disabled={isLoading} style={Input()} />
+                </div>
+              ))}
             </div>
-          ))}
+          ) : (
+            <>
+              {[
+                { label: "your name", key: "name", type: "text", ph: "Ada Okafor" },
+                { label: "username", key: "username", type: "text", ph: "adaokafor" },
+                { label: "email", key: "email", type: "email", ph: "ada@example.com" },
+                { label: "whatsapp number", key: "whatsapp", type: "tel", ph: "+234 801 234 5678" },
+              ].map(f => (
+                <div key={f.key}>
+                  <label style={{ display: "block", fontSize: 11, color: C.muted, marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}>{f.label}</label>
+                  <input type={f.type} placeholder={f.ph} value={user[f.key as keyof typeof user]} onChange={e => setUser({ ...user, [f.key]: e.target.value })} disabled={isLoading} style={Input()} />
+                </div>
+              ))}
+            </>
+          )}
           <div>
             <label style={{ display: "block", fontSize: 11, color: C.muted, marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}>password (min 6 chars)</label>
             <div style={{ position: "relative" }}>
@@ -271,7 +352,7 @@ function SignupScreen({ user, setUser, onNext, onSignin, isLoading, onLogoClick 
   );
 }
 
-function SigninScreen({ onNext, onSignup, isLoading, onLogoClick }: { onNext: (email: string, password: string) => Promise<void>; onSignup: () => void; isLoading: boolean; onLogoClick: () => void }) {
+function SigninScreen({ onNext, onSignup, isLoading, onLogoClick, isDesktop }: { onNext: (email: string, password: string) => Promise<void>; onSignup: () => void; isLoading: boolean; onLogoClick: () => void; isDesktop: boolean }) {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -288,9 +369,9 @@ function SigninScreen({ onNext, onSignup, isLoading, onLogoClick }: { onNext: (e
   };
 
   return (
-    <div style={page}>
+    <div style={page(isDesktop)}>
       <TopNav onLogoClick={onLogoClick} />
-      <div className="fadeUp" style={{ paddingTop: 16 }}>
+      <div className="fadeUp" style={{ paddingTop: 16, maxWidth: isDesktop ? 440 : undefined, margin: isDesktop ? "0 auto" : undefined, ...(isDesktop ? Card({ padding: "36px 32px", marginTop: 20 }) : {}) }}>
         <h2 style={H(28, { marginBottom: 6 })}>welcome back</h2>
         <p style={{ color: C.muted, fontSize: 15, marginBottom: 32, fontWeight: 500 }}>sign in to your account</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -342,7 +423,7 @@ const DURATIONS = [
   { val: "2 years", label: "2yr", sub: "life change" },
 ];
 
-function WizardScreen({ goal, setGoal, onGenerate, isEditing = false, onLogoClick }: { goal: { id: string; title: string; duration: string; motivation: string; category: string }; setGoal: React.Dispatch<React.SetStateAction<{ id: string; title: string; duration: string; motivation: string; category: string }>>; onGenerate: () => void; isEditing?: boolean; onLogoClick: () => void }) {
+function WizardScreen({ goal, setGoal, onGenerate, isEditing = false, onLogoClick, isDesktop }: { goal: { id: string; title: string; duration: string; motivation: string; category: string }; setGoal: React.Dispatch<React.SetStateAction<{ id: string; title: string; duration: string; motivation: string; category: string }>>; onGenerate: () => void; isEditing?: boolean; onLogoClick: () => void; isDesktop: boolean }) {
   const [step, setStep] = useState(1);
   const canGo = [
     goal.title.trim().length > 5,
@@ -399,24 +480,26 @@ function WizardScreen({ goal, setGoal, onGenerate, isEditing = false, onLogoClic
 
   const cur = steps[step - 1];
   return (
-    <div style={page}>
+    <div style={page(isDesktop)}>
       <TopNav onLogoClick={onLogoClick} />
-      <div style={{ display: "flex", gap: 6, marginBottom: 32 }}>
-        {steps.map((_, i) => (
-          <div key={i} style={{ flex: 1, height: 4, borderRadius: 99, background: i < step ? C.lime : C.border, transition: "background .3s" }} />
-        ))}
-      </div>
-      <div className="fadeUp" key={step}>
-        <div style={{ fontSize: 11, color: C.violet, textTransform: "uppercase", letterSpacing: 2, fontWeight: 800, marginBottom: 8 }}>{isEditing ? "editing goal" : "step"} {step} of 4</div>
-        <h2 style={H(26, { marginBottom: 8 })}>{isEditing ? "update your goal" : cur.q}</h2>
-        <p style={{ color: C.muted, fontSize: 14, marginBottom: 26, fontWeight: 600 }}>{cur.sub}</p>
-        <div style={{ marginBottom: 28 }}>{cur.el}</div>
-        <div style={{ display: "flex", gap: 10 }}>
-          {step > 1 && <button onClick={() => setStep(s => s - 1)} style={Ghost({ flex: 1 })}>← back</button>}
-          <button onClick={() => step === 4 ? onGenerate() : setStep(s => s + 1)} disabled={!canGo[step - 1]} style={Lime({ flex: 2, opacity: canGo[step - 1] ? 1 : 0.3 })}>
-            {step === 4 ? (isEditing ? "update roadmap 🔥" : "cook my roadmap 🔥") : "next →"}
-          </button>
+      <div style={{ maxWidth: isDesktop ? 560 : undefined, margin: isDesktop ? "0 auto" : undefined, ...(isDesktop ? Card({ padding: "36px 32px", marginTop: 20 }) : {}) }}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 32 }}>
+          {steps.map((_, i) => (
+            <div key={i} style={{ flex: 1, height: 4, borderRadius: 99, background: i < step ? C.lime : C.border, transition: "background .3s" }} />
+          ))}
         </div>
+        <div className="fadeUp" key={step}>
+          <div style={{ fontSize: 11, color: C.violet, textTransform: "uppercase", letterSpacing: 2, fontWeight: 800, marginBottom: 8 }}>{isEditing ? "editing goal" : "step"} {step} of 4</div>
+          <h2 style={H(26, { marginBottom: 8 })}>{isEditing ? "update your goal" : cur.q}</h2>
+          <p style={{ color: C.muted, fontSize: 14, marginBottom: 26, fontWeight: 600 }}>{cur.sub}</p>
+          <div style={{ marginBottom: 28 }}>{cur.el}</div>
+          <div style={{ display: "flex", gap: 10 }}>
+            {step > 1 && <button onClick={() => setStep(s => s - 1)} style={Ghost({ flex: 1 })}>← back</button>}
+            <button onClick={() => step === 4 ? onGenerate() : setStep(s => s + 1)} disabled={!canGo[step - 1]} style={Lime({ flex: 2, opacity: canGo[step - 1] ? 1 : 0.3 })}>
+              {step === 4 ? (isEditing ? "update roadmap 🔥" : "cook my roadmap 🔥") : "next →"}
+            </button>
+        </div>
+      </div>
       </div>
     </div>
   );
@@ -437,7 +520,7 @@ const LOADING_MSGS = [
   "this one's gonna go crazy fr",
 ];
 
-function ManualRoadmapForm({ goal, onSave, isLoading, onLogoClick }: { goal: { title: string; duration: string; motivation: string; category: string }; onSave: (roadmap: any) => Promise<void>; isLoading: boolean; onLogoClick: () => void }) {
+function ManualRoadmapForm({ goal, onSave, isLoading, onLogoClick, isDesktop }: { goal: { title: string; duration: string; motivation: string; category: string }; onSave: (roadmap: any) => Promise<void>; isLoading: boolean; onLogoClick: () => void; isDesktop: boolean }) {
   const [yearTarget, setYearTarget] = useState("");
   const [quarterTarget, setQuarterTarget] = useState("");
   const [monthTargets, setMonthTargets] = useState([""]);
@@ -517,7 +600,7 @@ function ManualRoadmapForm({ goal, onSave, isLoading, onLogoClick }: { goal: { t
   };
 
   return (
-    <div style={page}>
+    <div style={page(isDesktop)}>
       <TopNav onLogoClick={onLogoClick} />
       <div style={{ marginBottom: 24 }}>
         <h2 style={H(24, { marginBottom: 6 })}>build your roadmap manually</h2>
@@ -662,7 +745,7 @@ function ManualRoadmapForm({ goal, onSave, isLoading, onLogoClick }: { goal: { t
   );
 }
 
-function RoadmapScreen({ roadmap, setRoadmap, loading, goal, onApprove, onRegenerate, onLogoClick }: { roadmap: Record<string, any> | null; setRoadmap: React.Dispatch<React.SetStateAction<Record<string, any> | null>>; loading: boolean; goal: { title: string; duration: string; motivation: string; category: string }; onApprove: () => void; onRegenerate: () => void; onLogoClick: () => void }) {
+function RoadmapScreen({ roadmap, setRoadmap, loading, goal, onApprove, onRegenerate, onLogoClick, isDesktop }: { roadmap: Record<string, any> | null; setRoadmap: React.Dispatch<React.SetStateAction<Record<string, any> | null>>; loading: boolean; goal: { title: string; duration: string; motivation: string; category: string }; onApprove: () => void; onRegenerate: () => void; onLogoClick: () => void; isDesktop: boolean }) {
   const [msgIdx, setMsgIdx] = useState(0);
   const [newMonthTarget, setNewMonthTarget] = useState("");
   const [newWeekTarget, setNewWeekTarget] = useState("");
@@ -709,7 +792,7 @@ function RoadmapScreen({ roadmap, setRoadmap, loading, goal, onApprove, onRegene
   };
 
   return (
-    <div style={page}>
+    <div style={page(isDesktop)}>
       <TopNav onLogoClick={onLogoClick} />
       <div style={{ marginBottom: 24 }}>
         <h2 style={H(24, { marginBottom: 6 })}>
@@ -882,7 +965,7 @@ function RoadmapScreen({ roadmap, setRoadmap, loading, goal, onApprove, onRegene
   );
 }
 
-function SettingsScreen({ user, onBack, bgMode, toggleBgMode, notificationsEnabled, sendTestNotification, onLogoClick, notificationTime, setNotificationTime, notificationEnabled: notificationScheduleEnabled, toggleNotificationSchedule, scheduleDailyReminder }: { user: { name: string; email: string; whatsapp: string }; onBack: () => void; bgMode: "white" | "black"; toggleBgMode: () => void; notificationsEnabled: boolean; sendTestNotification: () => void; onLogoClick: () => void; notificationTime: string; setNotificationTime: (time: string) => void; notificationEnabled: boolean; toggleNotificationSchedule: (enabled: boolean) => void; scheduleDailyReminder: () => void }) {
+function SettingsScreen({ user, onBack, bgMode, toggleBgMode, notificationsEnabled, sendTestNotification, onLogoClick, notificationTime, setNotificationTime, notificationEnabled: notificationScheduleEnabled, toggleNotificationSchedule, scheduleDailyReminder, isDesktop }: { user: { name: string; email: string; whatsapp: string }; onBack: () => void; bgMode: "white" | "black"; toggleBgMode: () => void; notificationsEnabled: boolean; sendTestNotification: () => void; onLogoClick: () => void; notificationTime: string; setNotificationTime: (time: string) => void; notificationEnabled: boolean; toggleNotificationSchedule: (enabled: boolean) => void; scheduleDailyReminder: () => void; isDesktop: boolean }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -919,12 +1002,13 @@ function SettingsScreen({ user, onBack, bgMode, toggleBgMode, notificationsEnabl
   };
 
   return (
-    <div style={page}>
+    <div style={page(isDesktop)}>
       <TopNav onLogoClick={onLogoClick} right={<button onClick={onBack} style={Ghost({ padding: "9px 18px", fontSize: 13 })}>← back</button>} />
-      <div className="fadeUp" style={{ paddingTop: 16 }}>
+      <div className="fadeUp" style={{ paddingTop: 16, maxWidth: isDesktop ? 680 : undefined, margin: isDesktop ? "0 auto" : undefined }}>
         <h2 style={H(24, { marginBottom: 6 })}>settings</h2>
         <p style={{ color: C.muted, fontSize: 14, fontWeight: 600, marginBottom: 32 }}>manage your account and preferences</p>
 
+        <div style={{ display: isDesktop ? "grid" : "block", gridTemplateColumns: isDesktop ? "1fr 1fr" : undefined, gap: isDesktop ? 20 : undefined }}>
         <div style={Card({ marginBottom: 20 })}>
           <div style={{ fontSize: 12, color: C.muted, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 800, marginBottom: 16 }}>👤 profile</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -1051,13 +1135,14 @@ function SettingsScreen({ user, onBack, bgMode, toggleBgMode, notificationsEnabl
             )}
           </div>
         </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void }) {
-  const { user, goal, allGoals, currentGoalId, switchGoal, roadmap, tasks, setTasks, onTaskUpdate, onCreateGoal, onEditGoal, bgMode, toggleBgMode, dbConnected, analytics, onSettings, onLogoClick } = props;
+function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void; isDesktop: boolean }) {
+  const { user, goal, allGoals, currentGoalId, switchGoal, roadmap, tasks, setTasks, onTaskUpdate, onCreateGoal, onEditGoal, bgMode, toggleBgMode, dbConnected, analytics, onSettings, onLogoClick, isDesktop } = props;
   const [activeTab, setActiveTab] = useState("today");
   const [showGoalMenu, setShowGoalMenu] = useState(false);
   const done = tasks.filter(Boolean).length;
@@ -1066,7 +1151,7 @@ function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void
   const firstName = user.name?.split(" ")[0] || "there";
   const dailyTasks: string[] = roadmap?.daily_targets || ["plan your week", "take one action", "log your progress"];
   const days = ["M", "T", "W", "T", "F", "S", "S"];
-  const mobileGrid = window?.innerWidth < 640 ? { gridTemplateColumns: "1fr 1fr" } : {};
+  const mobileGrid = !isDesktop ? { gridTemplateColumns: "1fr 1fr" } : {};
 
   // Categorize goals
   const now = new Date();
@@ -1083,10 +1168,56 @@ function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void
   });
   const futureGoals = []; // For now, no future goals concept
 
+  const tabItems = [{ id: "today", icon: "⚡", label: "Today" }, { id: "goals", icon: "🎯", label: "Goals" }, { id: "progress", icon: "📊", label: "Progress" }, { id: "whatsapp", icon: "💬", label: "WhatsApp" }];
+
+  const sidebarNav = isDesktop ? (
+    <div style={{ width: 220, flexShrink: 0, borderRight: `1px solid ${C.border}`, background: C.surface, padding: "20px 0", display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "100vh" }}>
+      <div style={{ padding: "0 20px", marginBottom: 28 }}>
+        <Logo onClick={onLogoClick} large />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "0 10px", flex: 1 }}>
+        {tabItems.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "12px 14px", borderRadius: 10, border: "none",
+              background: activeTab === t.id ? `${C.lime}15` : "transparent",
+              color: activeTab === t.id ? C.lime : C.muted,
+              fontFamily: "inherit", fontSize: 14, fontWeight: 700,
+              cursor: "pointer", transition: "all .15s", textAlign: "left",
+            }}
+          >
+            <span style={{ fontSize: 18 }}>{t.icon}</span>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div style={{ padding: "0 10px", display: "flex", flexDirection: "column", gap: 6 }}>
+        <button onClick={onSettings} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, border: "none", background: "transparent", color: C.muted, fontFamily: "inherit", fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
+          <span style={{ fontSize: 16 }}>⚙️</span> Settings
+        </button>
+        <button onClick={toggleBgMode} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, border: "none", background: "transparent", color: C.muted, fontFamily: "inherit", fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
+          <span style={{ fontSize: 16 }}>{bgMode === "black" ? "☀️" : "🌙"}</span> {bgMode === "black" ? "Light Mode" : "Dark Mode"}
+        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px" }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: dbConnected ? C.green : C.pink }} />
+          <span style={{ fontSize: 11, fontWeight: 700, color: dbConnected ? C.green : C.pink }}>
+            {dbConnected === null ? "checking…" : dbConnected ? "DB connected" : "DB offline"}
+          </span>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
-    <div style={{ maxWidth: 430, margin: "0 auto", background: C.bg, minHeight: "100vh", color: C.text, fontFamily: "'Nunito',sans-serif" }}>
+    <div style={{ maxWidth: isDesktop ? 1200 : 430, margin: "0 auto", background: C.bg, minHeight: "100vh", color: C.text, fontFamily: "'Nunito',sans-serif", display: isDesktop ? "flex" : "block" }}>
+      {sidebarNav}
+      <div style={{ flex: 1, minWidth: 0 }}>
       {/* Header */}
-      <div style={{ padding: "16px 18px", borderBottom: `1px solid ${C.border}`, background: C.surface }}>
+      <div style={{ padding: isDesktop ? "16px 32px" : "16px 18px", borderBottom: `1px solid ${C.border}`, background: C.surface }}>
+        {!isDesktop && (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <Logo onClick={onLogoClick} />
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1104,6 +1235,7 @@ function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void
             </div>
           </div>
         </div>
+        )}
         
         {/* Goal Selector */}
         <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 8 }}>
@@ -1217,32 +1349,34 @@ function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — mobile only */}
+      {!isDesktop && (
       <div style={{ display: "flex", gap: 2, padding: "0 18px", borderBottom: `1px solid ${C.border}`, background: C.bg }}>
-        {[{ id: "today", label: "⚡ Today" }, { id: "goals", label: "🎯 Goals" }, { id: "progress", label: "📊 Progress" }, { id: "whatsapp", label: "💬 WhatsApp" }].map(t => (
-          <button 
-            key={t.id} 
-            onClick={() => setActiveTab(t.id)} 
-            style={{ 
+        {tabItems.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            style={{
               flex: 1,
-              padding: "12px 0", 
+              padding: "12px 0",
               background: activeTab === t.id ? C.card : "transparent",
               border: "none",
-              color: activeTab === t.id ? C.lime : C.muted, 
-              fontFamily: "inherit", 
-              fontSize: 13, 
-              fontWeight: 700, 
+              color: activeTab === t.id ? C.lime : C.muted,
+              fontFamily: "inherit",
+              fontSize: 13,
+              fontWeight: 700,
               cursor: "pointer",
               borderBottom: activeTab === t.id ? `3px solid ${C.lime}` : "3px solid transparent",
               transition: "all .2s"
             }}>
-            {t.label}
+            {t.icon} {t.label}
           </button>
         ))}
       </div>
+      )}
 
       {/* Content */}
-      <div style={{ padding: "18px 18px 110px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ padding: isDesktop ? "24px 32px 40px" : "18px 18px 110px", display: "flex", flexDirection: "column", gap: 12, maxWidth: isDesktop ? 800 : undefined }}>
         {activeTab === "goals" && (<>
           <div className="fadeUp">
             <h2 style={H(22, { marginBottom: 4 })}>your goals</h2>
@@ -1400,7 +1534,7 @@ function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void
             )}
           </div>
 
-          <div className="fadeUp s4" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, ...mobileGrid }}>
+          <div className="fadeUp s4" style={{ display: "grid", gridTemplateColumns: isDesktop ? "1fr 1fr 1fr" : "1fr 1fr", gap: isDesktop ? 14 : 10 }}>
             {[
               { icon: "🔥", label: "current streak", val: `${analytics.streak} day${analytics.streak !== 1 ? 's' : ''}`, color: C.amber },
               { icon: "🏆", label: "best streak", val: `${analytics.bestStreak} day${analytics.bestStreak !== 1 ? 's' : ''}`, color: C.amber },
@@ -1544,19 +1678,24 @@ function DashboardScreen(props: DashboardScreenProps & { onLogoClick: () => void
         </>)}
       </div>
 
+      {/* Bottom nav — mobile only */}
+      {!isDesktop && (
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: C.card, borderTop: `1.5px solid ${C.border}`, padding: "10px 18px 28px", display: "flex", justifyContent: "space-around", zIndex: 100 }}>
-        {[{ id: "today", icon: "⚡", label: "today" }, { id: "goals", icon: "🎯", label: "goals" }, { id: "progress", icon: "📊", label: "progress" }, { id: "whatsapp", icon: "💬", label: "whatsapp" }].map(n => (
+        {tabItems.map(n => (
           <button key={n.id} onClick={() => setActiveTab(n.id)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, background: activeTab === n.id ? `${C.lime}12` : "none", border: "none", cursor: "pointer", padding: "7px 22px", borderRadius: 14 }}>
             <span style={{ fontSize: 20 }}>{n.icon}</span>
             <span style={{ fontSize: 11, fontFamily: "inherit", fontWeight: 800, color: activeTab === n.id ? C.lime : C.muted }}>{n.label}</span>
           </button>
         ))}
       </div>
+      )}
+      </div>
     </div>
   );
 }
 
 export default function SabiTrack() {
+  const isDesktop = useIsDesktop();
   const supabase = useMemo(() => createClient(), []);
   const [screen, setScreen] = useState("landing");
   const [user, setUser] = useState({ name: "", email: "", whatsapp: "", password: "", username: "" });
@@ -2307,12 +2446,12 @@ export default function SabiTrack() {
 
   return (
     <div style={{ backgroundColor: C.bg, color: C.text, fontFamily: "'Nunito',sans-serif", minHeight: "100vh" }}>
-      {screen === "landing" && <LandingScreen onStart={() => setScreen("signin")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} onLogoClick={() => setScreen("landing")} />}
-      {screen === "signup" && <SignupScreen user={user} setUser={setUser} onNext={saveUserSignup} onSignin={() => setScreen("signin")} isLoading={loading} onLogoClick={() => setScreen("landing")} />}
-      {screen === "signin" && <SigninScreen onNext={(email, password) => handleSignin(email, password)} onSignup={() => { setUser({ name: "", email: "", whatsapp: "", password: "", username: "" }); setScreen("signup"); }} isLoading={loading} onLogoClick={() => setScreen("landing")} />}
-      {screen === "wizard" && <WizardScreen goal={goal} setGoal={setGoal} onGenerate={generateRoadmap} isEditing={!!goal.id} onLogoClick={() => setScreen("dashboard")} />}
-      {screen === "roadmap" && isManualMode ? <ManualRoadmapForm goal={goal} onSave={handleManualRoadmapSave} isLoading={loading} onLogoClick={() => setScreen("dashboard")} /> : screen === "roadmap" && <RoadmapScreen roadmap={roadmap} setRoadmap={setRoadmap} loading={loading} goal={goal} onApprove={() => setScreen("dashboard")} onRegenerate={generateRoadmap} onLogoClick={() => setScreen("dashboard")} />}
-      {screen === "settings" && <SettingsScreen user={user} onBack={() => setScreen("dashboard")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} notificationsEnabled={notificationsEnabled} sendTestNotification={sendTestNotification} onLogoClick={() => setScreen("dashboard")} notificationTime={notificationTime} setNotificationTime={setNotificationTime} notificationEnabled={notificationEnabled} toggleNotificationSchedule={toggleNotificationSchedule} scheduleDailyReminder={scheduleDailyReminder} />}
+      {screen === "landing" && <LandingScreen onStart={() => setScreen("signin")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} onLogoClick={() => setScreen("landing")} isDesktop={isDesktop} />}
+      {screen === "signup" && <SignupScreen user={user} setUser={setUser} onNext={saveUserSignup} onSignin={() => setScreen("signin")} isLoading={loading} onLogoClick={() => setScreen("landing")} isDesktop={isDesktop} />}
+      {screen === "signin" && <SigninScreen onNext={(email, password) => handleSignin(email, password)} onSignup={() => { setUser({ name: "", email: "", whatsapp: "", password: "", username: "" }); setScreen("signup"); }} isLoading={loading} onLogoClick={() => setScreen("landing")} isDesktop={isDesktop} />}
+      {screen === "wizard" && <WizardScreen goal={goal} setGoal={setGoal} onGenerate={generateRoadmap} isEditing={!!goal.id} onLogoClick={() => setScreen("dashboard")} isDesktop={isDesktop} />}
+      {screen === "roadmap" && isManualMode ? <ManualRoadmapForm goal={goal} onSave={handleManualRoadmapSave} isLoading={loading} onLogoClick={() => setScreen("dashboard")} isDesktop={isDesktop} /> : screen === "roadmap" && <RoadmapScreen roadmap={roadmap} setRoadmap={setRoadmap} loading={loading} goal={goal} onApprove={() => setScreen("dashboard")} onRegenerate={generateRoadmap} onLogoClick={() => setScreen("dashboard")} isDesktop={isDesktop} />}
+      {screen === "settings" && <SettingsScreen user={user} onBack={() => setScreen("dashboard")} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} notificationsEnabled={notificationsEnabled} sendTestNotification={sendTestNotification} onLogoClick={() => setScreen("dashboard")} notificationTime={notificationTime} setNotificationTime={setNotificationTime} notificationEnabled={notificationEnabled} toggleNotificationSchedule={toggleNotificationSchedule} scheduleDailyReminder={scheduleDailyReminder} isDesktop={isDesktop} />}
       {screen === "dashboard" && (
         <>
           <InstallPrompt
@@ -2323,7 +2462,7 @@ export default function SabiTrack() {
             onHelp={handleIosInstallHelp}
             onDismiss={() => setShowInstallPrompt(false)}
           />
-          <DashboardScreen user={user} goal={goal} allGoals={allGoals} currentGoalId={currentGoalId} switchGoal={switchGoal} roadmap={roadmap} tasks={tasks} setTasks={(newTasks) => { setTasks(newTasks); }} onTaskUpdate={(taskIndex, completed, taskText) => updateTaskStatus(taskIndex, completed, taskText)} onCreateGoal={() => { setGoal({ id: "", title: "", duration: "6 months", motivation: "", category: "" }); setScreen("wizard"); }} onEditGoal={(goalToEdit) => { setGoal(goalToEdit); setScreen("wizard"); }} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} dbConnected={dbConnected} analytics={analytics} onSettings={() => setScreen("settings")} onLogoClick={() => setScreen("dashboard")} />
+          <DashboardScreen user={user} goal={goal} allGoals={allGoals} currentGoalId={currentGoalId} switchGoal={switchGoal} roadmap={roadmap} tasks={tasks} setTasks={(newTasks) => { setTasks(newTasks); }} onTaskUpdate={(taskIndex, completed, taskText) => updateTaskStatus(taskIndex, completed, taskText)} onCreateGoal={() => { setGoal({ id: "", title: "", duration: "6 months", motivation: "", category: "" }); setScreen("wizard"); }} onEditGoal={(goalToEdit) => { setGoal(goalToEdit); setScreen("wizard"); }} bgMode={bgMode} toggleBgMode={() => setBgMode(prev => (prev === "black" ? "white" : "black"))} dbConnected={dbConnected} analytics={analytics} onSettings={() => setScreen("settings")} onLogoClick={() => setScreen("dashboard")} isDesktop={isDesktop} />
         </>
       )}
     </div>

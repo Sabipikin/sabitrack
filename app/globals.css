@@ -189,8 +189,26 @@ input {
   .mobile-grid {
     grid-template-columns: 1fr !important;
   }
-  
+
   .mobile-text {
     font-size: 14px !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .card-hover:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  }
+
+  .btn-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  }
+
+  input:focus,
+  textarea:focus {
+    border-color: #10B981 !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
   }
 }
