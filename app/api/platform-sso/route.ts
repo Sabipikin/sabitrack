@@ -41,10 +41,18 @@ export async function POST(req: NextRequest) {
     const signUp = await supabase.auth.signUp({ email, password });
     session = signUp.data.session;
     if (!session) {
-      // Account exists with its own password, or email confirmation is required.
+      // Distinguish "account exists with its own password" from a project
+      // config problem (e.g. Confirm email enabled → signUp yields no session).
+      const detail = signUp.error?.message
+        || (signUp.data.user ? 'email confirmation required — disable "Confirm email" in Supabase Auth settings' : 'unknown');
+      const exists = /already registered/i.test(detail);
       return NextResponse.json(
-        { error: 'This email already has a SabiTrack password — use the login form' },
-        { status: 409 },
+        {
+          error: exists
+            ? 'This email already has a SabiTrack password — use the login form'
+            : `Platform sign-in unavailable: ${detail}`,
+        },
+        { status: exists ? 409 : 503 },
       );
     }
   }
