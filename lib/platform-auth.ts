@@ -21,7 +21,8 @@ export async function verifyPlatformToken(token: string): Promise<PlatformUser |
     if (!payload.sub || !payload.workspaceId) return null;
 
     const apps = (payload.apps as Record<string, any>) || {};
-    const sabitrackPerms = apps.sabitrack;
+    // 'sabisuites' is the umbrella grant used after per-app tiles were consolidated.
+    const sabitrackPerms = apps.sabitrack ?? apps.sabisuites;
     if (!sabitrackPerms?.read) return null;
 
     return {

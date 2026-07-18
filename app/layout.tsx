@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ServiceWorkerRegister from "./components/ServiceWorkerRegister";
+import PlatformSSO from "./components/PlatformSSO";
 
 export const metadata: Metadata = {
   title: "SabiTrack - AI-Powered Accountability",
@@ -23,6 +24,11 @@ export const viewport: Viewport = {
   themeColor: "#10B981",
 };
 
+// Captures the Sabi platform one-login fragment (#sso=platform&token=...)
+// before the Next router can replace the URL and drop it; PlatformSSO
+// exchanges the stashed token for a Supabase session on mount.
+const SSO_CAPTURE = `(function(){try{var h=new URLSearchParams(location.hash.replace(/^#/,''));if(h.get('sso')==='platform'&&h.get('token')){sessionStorage.setItem('platformSSO',h.get('token'));history.replaceState(null,'',location.pathname+location.search);}}catch(e){}})();`;
+
 export default function RootLayout({
   children,
 }: {
@@ -31,6 +37,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <script dangerouslySetInnerHTML={{ __html: SSO_CAPTURE }} />
+        <PlatformSSO />
         {children}
         <ServiceWorkerRegister />
       </body>
