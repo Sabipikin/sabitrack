@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ServiceWorkerRegister from "./components/ServiceWorkerRegister";
 import PlatformSSO from "./components/PlatformSSO";
+import { GoogleProvider } from "@/lib/google-oauth";
 
 export const metadata: Metadata = {
   title: "SabiTrack - AI-Powered Accountability",
@@ -38,8 +39,10 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <script dangerouslySetInnerHTML={{ __html: SSO_CAPTURE }} />
-        <PlatformSSO />
-        {children}
+        <GoogleProvider>
+          <PlatformSSO />
+          {children}
+        </GoogleProvider>
         <ServiceWorkerRegister />
       </body>
     </html>
